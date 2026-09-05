@@ -1,4 +1,4 @@
-# Protein 1.3
+# Protein 1.4
 
 A touch-first protein and molecular structure viewer. React owns the interface; Mol* 5.11.0 owns parsing, molecular representations, picking, and the camera. The original iPad-tested release is tagged `v1.0.0`.
 
@@ -19,6 +19,12 @@ npm run dev
 ```
 
 Open the printed **Network URL** in iPad Safari. The Mac serves files; the iPad performs its own rendering and camera interaction. There is no mirrored display or camera synchronization.
+
+## Language and automatic view
+
+Switch between **English and 简体中文** using **中文 / EN** in the toolbar. The choice persists on each browser.
+
+**Files → Auto view · Beta** rotates and fits visible components to reduce sampled projection overlap; **Undo view** restores the prior camera. It does not change alignment coordinates. **Nearby atoms · 5 Å** respects the checked Files components, including hidden water and chains. See [language and view controls](docs/view-and-language.md).
 
 ## Mac → iPad workflow
 

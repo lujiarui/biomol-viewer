@@ -1,8 +1,10 @@
+import { localize, useI18n } from '../i18n';
 import { useEffect, useRef } from 'react';
 import { ViewerController } from '../viewer/ViewerController';
 import type { ProteinViewer } from '../viewer/types';
 interface Props { onReady: (viewer: ProteinViewer) => void; onError: (error: unknown) => void; }
 export function ViewerCanvas({ onReady, onError }: Props) {
+  const { language } = useI18n();
   const host = useRef<HTMLDivElement>(null);
   useEffect(() => {
     const abort = new AbortController();
@@ -14,5 +16,5 @@ export function ViewerCanvas({ onReady, onError }: Props) {
     }).catch(error => { if (!abort.signal.aborted) onError(error); });
     return () => { abort.abort(); viewer?.dispose(); };
   }, [onReady, onError]);
-  return <div ref={host} className="viewer-canvas" aria-label="Interactive protein structure" />;
+  return localize(<div ref={host} className="viewer-canvas" aria-label="Interactive protein structure" />, language);
 }

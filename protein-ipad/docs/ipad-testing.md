@@ -66,3 +66,10 @@ The following are covered by automated Chromium/WebKit tests with real molecular
 - Quick align with two files, verify chosen chains, then Undo. With one or three files it must be disabled.
 - Use small two-finger pinches at whole-structure and atom-level zoom. Check controllability and motion settling on the physical iPad; desktop/WebKit automation cannot validate the feel of a physical touch screen.
 - Purge all structures, verify the empty scene, then reopen a file. Check that source files and existing Mac exports remain available.
+
+## Version 1.4 physical iPad checks
+
+- Switch 中文 / EN while structures and alignment results are open; confirm the scene remains loaded and the setting persists after refresh.
+- Check portrait/Split View labels, translated dialogs, and the on-screen keyboard for region/PDB inputs.
+- Try Files → Auto view · Beta on monomers and complexes; compare readability and use Undo view.
+- Uncheck water, ligand, or another chain, then choose Nearby atoms. Confirm the hidden components stay absent. Repeat after enabling a component.

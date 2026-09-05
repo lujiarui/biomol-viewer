@@ -1,18 +1,22 @@
+import { localize, useI18n } from '../i18n';
 import type { Palette, RepresentationMode, SceneStructure } from '../viewer/types';
 interface Props {
   scene: SceneStructure[]; busy: boolean; palette: Palette; mode: RepresentationMode; picking: 'residue' | 'atom';
-  onPurge: () => void; onClose: () => void; onVisibility: (id: string, visible: boolean, partId?: string) => void;
+  onAutoView:()=>void; onUndoView:()=>void; canUndoView:boolean; onPurge: () => void; onClose: () => void; onVisibility: (id: string, visible: boolean, partId?: string) => void;
   onDuplicate: (id: string) => void; onReload: (id: string) => void; onRemove: (id: string) => void; onFocus: (id: string) => void;
   onStyle: (palette: Palette, mode: RepresentationMode) => void; onPicking: (mode: 'residue' | 'atom') => void;
 }
 export function StructurePanel(p: Props) {
-  return <aside className="structure-panel" aria-label="Structures">
+  const { language } = useI18n();
+  return localize(<aside className="structure-panel" aria-label="Structures">
     <header><h2>Structures <span className="muted">{p.scene.length}</span></h2><button onClick={p.onClose} aria-label="Close structures panel">×</button></header>
     <div className="style-controls">
       <label>Chain palette<select value={p.palette} disabled={p.busy} onChange={e => p.onStyle(e.target.value as Palette, p.mode)}><option value="vivid">Vivid</option><option value="pastel">Pastel</option><option value="accessible">Colorblind-friendly</option></select></label>
       <label>Representation<select value={p.mode} disabled={p.busy} onChange={e => p.onStyle(p.palette, e.target.value as RepresentationMode)}><option value="cartoon">Cartoon</option><option value="cartoon-sticks">Cartoon + sticks</option><option value="atoms">All atoms</option></select></label>
       <label>Tap selects<select value={p.picking} disabled={p.busy} onChange={e => p.onPicking(e.target.value as 'residue' | 'atom')}><option value="residue">Residue</option><option value="atom">Atom</option></select></label>
     </div>
+    <div className="entry-actions"><button disabled={p.busy || !p.scene.length} onClick={p.onAutoView} aria-label="Automatically orient visible structures">Auto view · Beta</button><button disabled={p.busy || !p.canUndoView} onClick={p.onUndoView}>Undo view</button></div>
+    <p className="muted">Find a view with less projected overlap. Visible components only.</p>
     <button disabled={p.busy || !p.scene.length} onClick={p.onPurge}>Purge all structures</button>
     {!p.scene.length && <p className="muted">Open structures to manage them here.</p>}
     {p.scene.map(entry => <article key={entry.id} className="scene-entry">
@@ -22,5 +26,5 @@ export function StructurePanel(p: Props) {
     </article>)}
     <p className="muted panel-note">Protein: chain-colored ribbons. DNA/RNA and ligands: element-colored atoms. Glycans: symbols. Ions: spheres. Water starts hidden.</p>
     <p className="muted panel-note">Files retain their original coordinates; loading several files does not align them.</p>
-  </aside>;
+  </aside>, language);
 }

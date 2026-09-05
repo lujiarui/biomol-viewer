@@ -1,9 +1,11 @@
+import { localize, useI18n } from '../i18n';
 import { useEffect, useState, useRef } from 'react';
 import type { SceneStructure, SelectionState } from '../viewer/types';
 import type { AlignmentEndpoint, AlignmentReport, AlignmentRequest } from '../viewer/alignment';
 interface Props { open:boolean; scene: SceneStructure[]; selection: SelectionState; busy: boolean; additive: boolean; onAdditive: (value: boolean) => void; onClose: () => void; onPreview: (request: AlignmentRequest) => AlignmentReport; onApply: (request: AlignmentRequest) => Promise<AlignmentReport | undefined>; onUndo: () => Promise<unknown>; onHold: (request:AlignmentRequest)=>Promise<AlignmentReport>; onRelease:()=>Promise<void>; onHolding:(value:boolean)=>void; onQuick:()=>Promise<{request:AlignmentRequest;report:AlignmentReport;candidates:number}|undefined>; }
 const blank: AlignmentEndpoint = { structureId: '', chainId: '' };
 export function AlignmentPanel(p: Props) {
+  const { language } = useI18n();
   const [reference,setReference]=useState<AlignmentEndpoint>(blank), [mobile,setMobile]=useState<AlignmentEndpoint>(blank);
   const [holding,setHolding]=useState(false); const held=useRef(false); const releasing=useRef(false);
   const [quickNote,setQuickNote]=useState('');
@@ -36,7 +38,7 @@ export function AlignmentPanel(p: Props) {
     </fieldset>;
   }
   const request:AlignmentRequest={reference,mobile,pairing};
-  return <aside hidden={!p.open} className="alignment-panel" aria-label="Superposition">
+  return localize(<aside hidden={!p.open} className="alignment-panel" aria-label="Superposition">
     <header><h2>Superpose</h2><button disabled={p.busy || holding} onClick={p.onClose} aria-label="Close superposition">×</button></header>
     <button disabled={p.busy || holding || p.scene.length!==2} onClick={async()=>{const result=await p.onQuick();if(result){setReference(result.request.reference);setMobile(result.request.mobile);setPairing('coordinates');setReport(result.report);setApplied(true);setError('');setQuickNote(`Matched chain ${result.request.reference.chainId} → ${result.request.mobile.chainId} from ${result.candidates} compatible pairs. First file fixed; second file moved.`);}}}>Quick align two files</button>
     <p className="muted">{quickNote || 'Quick mode needs exactly two files and automatically applies the best geometry-based chain match. Undo remains available.'}</p>
@@ -57,5 +59,5 @@ export function AlignmentPanel(p: Props) {
       <button className="primary-button" disabled={p.busy || holding || applied} onClick={async()=>{const result=await p.onApply(request);if(result){setReport(result);setApplied(true);}}}>{applied?'Alignment applied':'Apply alignment'}</button>
     </section>}
     <button disabled={p.busy || holding} onClick={async()=>{await p.onUndo();reset();}}>Undo last alignment</button>
-  </aside>;
+  </aside>, language);
 }

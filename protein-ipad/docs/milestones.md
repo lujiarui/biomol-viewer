@@ -19,3 +19,7 @@ Seven bundled scenario/comparison examples, sequence-guided chain and independen
 ## 1.3 — interactive and sequence-independent comparison
 
 Temporary translucent hold preview with restoration on release/cancel/blur; bounded coordinate-only matching with unequal lengths and gaps; automatic compatible-chain search and immediate fit for exactly two files; lower-gain damped pinch zoom; scene purge. Tests include randomized sequences, synthetic insertions, a real ubiquitin loop deletion, automatic selection against a decoy chain, quick undo, preview restoration, and clean reload after purge.
+
+## 1.4 — bilingual UI and visibility-aware inspection
+
+English/Simplified Chinese interface and remembered language preference; optional sampled automatic orientation with camera undo; nearby atoms restricted to checked file components. Validation covers Chinese UI/errors/accessibility, real-water exclusion, projection-score improvement, and exported camera state before/after/undo.

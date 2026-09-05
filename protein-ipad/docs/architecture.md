@@ -33,3 +33,9 @@ Each loaded structure has a dedicated TransformStructureConformation node before
 Hold preview snapshots the mobile matrix, camera, and representation alpha factors, updates the existing state node temporarily, and restores them on release. It does not modify the stored entry matrix, provenance, or undo stack. UI pointer capture plus keyboard/blur/cancellation handlers keep release reliable. Other scene mutations are blocked while previewing.
 
 Purge deletes all molecular data subtrees and clears selections/undo/provenance; configured filesystem directories are untouched. Trackball gesture gain is 0.25, zoom speed 4, staticMoving false, and damping factor 0.35, reducing pinch sensitivity and introducing gradual settling.
+
+## Language and visible-atom views (1.4)
+
+The React i18n context stores language preference locally. Each UI component translates its rendered React text and accessibility attributes with `localize`; controlled values, event handlers, molecular data and filenames remain intact. The translation catalog includes parameterized messages. No DOM rewriting or molecular reload occurs on language changes.
+
+`visibleAtoms.ts` unions checked component loci after remapping them onto the parent structure. The controller uses that set for both neighborhood intersection and automatic camera orientation. `bestView.ts` scores deterministic sampled projections; the controller scans all eligible atoms for a conservative bounding box, requests an invariant camera orientation, and stores one prior camera snapshot for undo.

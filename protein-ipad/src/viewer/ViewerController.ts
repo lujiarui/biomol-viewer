@@ -2,10 +2,12 @@ import { PluginStateObject } from 'molstar/lib/mol-plugin-state/objects';
 import type { Camera } from 'molstar/lib/mol-canvas3d/camera';
 import type { PluginContext } from 'molstar/lib/mol-plugin/context';
 import { StructureElement, StructureProperties, Bond } from 'molstar/lib/mol-model/structure';
-import { MolScriptBuilder as MS } from 'molstar/lib/mol-script/language/builder';
+import { neighborhoodExpression, visibleSubset } from './visibleAtoms';
 import { setSubtreeVisibility } from 'molstar/lib/mol-plugin/behavior/static/state';
 import { ButtonsType } from 'molstar/lib/mol-util/input/input-observer';
-import { Mat4 } from 'molstar/lib/mol-math/linear-algebra';
+import { OrderedSet } from 'molstar/lib/mol-data/int';
+import { bestView } from './bestView';
+import { Mat4, Vec3 } from 'molstar/lib/mol-math/linear-algebra';
 import { extractAlignmentChains, fitChains, residueKey } from './alignment';
 import type { AlignmentRequest, AlignmentReport } from './alignment';
 import { examplePath } from './examples';
@@ -18,6 +20,7 @@ import type { ProteinViewer, SelectionState, SceneStructure, Palette, Representa
 type Loaded = Awaited<ReturnType<typeof loadStructure>>;
 export class ViewerController implements ProteinViewer {
   private entries = new Map<string, Loaded & { visible: boolean; macFile?: string; matrix: Mat4 }>();
+  private previousView?: Camera.Snapshot;
   private preview?: { id: string; matrix: Mat4; camera?: Camera.Snapshot; restoreAlpha: (()=>void)[] };
   private addSelection = false;
   private colorSerial = 0;
@@ -199,7 +202,7 @@ export class ViewerController implements ProteinViewer {
   });}
   purge(){return this.run(async()=>{
     this.clearSelection();const update=this.plugin.build();for(const id of this.entries.keys())update.delete(id);await update.commit();
-    this.entries.clear();this.undo=[];this.lastAlignment=undefined;this.detailRef=undefined;this.addSelection=false;this.colorSerial=0;this.resetCamera();
+    this.entries.clear();this.previousView=undefined;this.undo=[];this.lastAlignment=undefined;this.detailRef=undefined;this.addSelection=false;this.colorSerial=0;this.resetCamera();
   });}
   applyAlignment(request: AlignmentRequest) { return this.run(()=>this.commitAlignment(request)); }
   private async commitAlignment(request: AlignmentRequest) {
@@ -280,7 +283,9 @@ export class ViewerController implements ProteinViewer {
     const entry = this.entries.get(this.selection.structureId || '');
     if (!entry || !this.selectedLoci) return;
     if (this.detailRef) { await this.plugin.build().delete(this.detailRef).commit(); this.detailRef = undefined; }
-    const expression = MS.struct.modifier.includeSurroundings({ 0: StructureElement.Loci.toExpression(this.selectedLoci), radius: 5, 'as-whole-residues': true });
+    const visible=this.visibleStructure(entry);
+    if(!visible || !entry.visible)return;
+    const expression = neighborhoodExpression(this.selectedLoci,visible);
     const node = await this.plugin.builders.structure.tryCreateComponentFromExpression(entry.structure, expression, 'local-detail');
     if (node) {
       this.detailRef = node.ref;
@@ -288,6 +293,25 @@ export class ViewerController implements ProteinViewer {
       this.plugin.managers.camera.focusLoci(this.selectedLoci, { minRadius: 6, extraRadius: 1, durationMs: 250 });
     }
   }); }
+  private visibleStructure(entry: Loaded & {visible:boolean}) {
+    if(!entry.visible || !entry.structure.obj)return undefined;
+    return visibleSubset(entry.structure.obj.data,entry.parts.map(part=>({visible:part.state.visible,structure:part.node.obj?.data})));
+  }
+  autoView(){return this.run(async()=>{
+    const canvas=this.plugin.canvas3d;if(!canvas)return;
+    const points:[number,number,number][]=[];
+    // Sample each visible component uniformly, bounding CPU and memory on iPad.
+    const visible=[...this.entries.values()].map(e=>this.visibleStructure(e)).filter(s=>s && s.elementCount>0);
+    const total=visible.reduce((sum,s)=>sum+s!.elementCount,0),stride=Math.max(1,Math.ceil(total/4000));let index=0;
+    const min=Vec3.create(Infinity,Infinity,Infinity),max=Vec3.create(-Infinity,-Infinity,-Infinity);
+    for(const structure of visible)for(const unit of structure!.units)for(let i=0;i<OrderedSet.size(unit.elements);i++){const p=unit.conformation.position(OrderedSet.getAt(unit.elements,i),Vec3());if(!p.every(Number.isFinite))continue;Vec3.min(min,min,p);Vec3.max(max,max,p);if(index++%stride===0)points.push([p[0],p[1],p[2]]);}
+    const before=canvas.camera.getSnapshot(),direction=Vec3.sub(Vec3(),before.position,before.target);
+    const result=bestView(points,canvas.camera.viewport.width/canvas.camera.viewport.height,direction,before.up,{min,max});
+    // A bounding sphere makes the zoom conservative: selected visible geometry stays within view.
+    const snapshot=canvas.camera.getInvariantFocus(result.center,result.radius*1.08,result.up,Vec3.negate(Vec3(),result.direction));
+    this.previousView=before;this.plugin.managers.camera.setSnapshot(snapshot,350);
+  });}
+  undoView(){if(this.previousView){this.plugin.managers.camera.setSnapshot(this.previousView,250);this.previousView=undefined;}}
   resetCamera() { if (!this.disposed) this.plugin.managers.camera.reset(); }
   dispose() {
     if (this.disposed) return; this.disposed = true; this.abort.abort();

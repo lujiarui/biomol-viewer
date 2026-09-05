@@ -102,3 +102,8 @@ nav { max-width:100%; flex:0 1 auto; }
 .hold-preview[aria-pressed="true"] { background: #9edfd1; color: #12282c; }
 
 .preview-held .viewer-canvas { pointer-events: none; }
+@media (max-width:750px) {
+  .language-switch { position:absolute; top:12px; right:max(16px, env(safe-area-inset-right)); }
+  .structure-title { padding-right:60px; min-height:44px; }
+}
+@media (max-width:450px) { nav button { padding-left:10px; padding-right:10px; } }

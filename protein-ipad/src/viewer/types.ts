@@ -30,6 +30,8 @@ export interface ProteinViewer {
   setPicking(mode: 'residue' | 'atom'): void;
   focusSelection(): void;
   showNeighborhood(): Promise<void>;
+  autoView(): Promise<void>;
+  undoView(): void;
   resetCamera(): void;
   clearSelection(): void;
   getSelection(): SelectionState;
