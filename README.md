@@ -268,6 +268,10 @@ A static host can serve `dist/` for device-file loading and RCSB access. The Mac
 library and Mac export features require the included Node server or the Vite
 development server.
 
+## License
+
+Biomol Viewer is available under the [MIT License](LICENSE).
+
 ## Documentation
 
 - [Bundled examples and provenance](docs/examples.md)
