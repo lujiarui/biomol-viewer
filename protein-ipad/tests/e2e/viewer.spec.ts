@@ -1,0 +1,23 @@
+import { test, expect } from '@playwright/test';
+test('bundled molecule renders without desktop panels and responds to camera and resize', async ({ page }) => {
+  const errors: string[] = [];
+  page.on('pageerror', error => errors.push(error.message));
+  await page.goto('/');
+  await expect(page.getByRole('main')).toHaveAttribute('data-ready', 'true');
+  const canvas = page.locator('canvas');
+  await expect(canvas).toHaveCount(1);
+  await expect(page.locator('.msp-plugin')).toHaveCount(0);
+  await page.waitForTimeout(800);
+  const before = await canvas.screenshot();
+  await page.mouse.move(600, 400);
+  await page.mouse.down();
+  await page.mouse.move(750, 500, { steps: 15 });
+  await page.mouse.up();
+  await page.waitForTimeout(500);
+  const after = await canvas.screenshot();
+  expect(after.equals(before)).toBe(false);
+  await page.screenshot({ path: 'test-results/spike-landscape.png' });
+  await page.setViewportSize({ width: 700, height: 900 });
+  await expect.poll(async () => (await canvas.boundingBox())?.width).toBe(700);
+  expect(errors).toEqual([]);
+});

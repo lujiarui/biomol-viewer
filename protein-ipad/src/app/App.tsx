@@ -1,1 +1,2 @@
-export function App() { return <main aria-label="Protein viewer" />; }
+import { ViewerCanvas } from '../components/ViewerCanvas';
+export function App() { return <ViewerCanvas />; }
