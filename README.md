@@ -1,5 +1,7 @@
 # Biomol Viewer
 
+English | [简体中文](README.zh-CN.md)
+
 Biomol Viewer turns a Mac and an iPad into one molecular-structure workspace.
 The Mac generates, stores, and serves PDB/mmCIF files; the iPad provides the
 touch-first viewer in Safari. It uses neither screen mirroring nor an extended
