@@ -41,3 +41,18 @@ test('local mmCIF and PDB replace the example, malformed files recover', async (
   await expect(page.getByRole('alert')).toHaveCount(0);
   await expect(page.locator('canvas')).toHaveCount(1);
 });
+
+test('touch-sized controls fit portrait and split-screen widths', async ({ page }) => {
+  await page.goto('/');
+  await expect(page.getByRole('main')).toHaveAttribute('data-ready', 'true');
+  for (const width of [834, 600, 375]) {
+    await page.setViewportSize({ width, height: 900 });
+    for (const button of await page.getByRole('button').all()) {
+      const box = await button.boundingBox();
+      expect(box?.width).toBeGreaterThanOrEqual(44);
+      expect(box?.height).toBeGreaterThanOrEqual(44);
+      expect(box!.x + box!.width).toBeLessThanOrEqual(width);
+      expect(box!.x).toBeGreaterThanOrEqual(0);
+    }
+  }
+});
