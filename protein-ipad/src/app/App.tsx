@@ -1,5 +1,6 @@
-import { useCallback, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { ViewerCanvas } from '../components/ViewerCanvas';
+import { SelectionSheet } from '../components/SelectionSheet';
 import { TopBar } from '../components/TopBar';
 import { EmptyState } from '../components/EmptyState';
 import type { ProteinViewer } from '../viewer/types';
@@ -7,11 +8,18 @@ import { errorMessage, initialState } from '../state/viewerState';
 import './app.css';
 export function App() {
   const viewer = useRef<ProteinViewer | null>(null);
+  const unsubscribeSelection = useRef<(() => void) | undefined>(undefined);
+  useEffect(() => () => unsubscribeSelection.current?.(), []);
   const picker = useRef<HTMLInputElement>(null);
   const [ready, setReady] = useState(false);
   const [state, setState] = useState(initialState);
   const onError = useCallback((error: unknown) => setState(s => ({ ...s, error: errorMessage(error) })), []);
-  const onReady = useCallback((created: ProteinViewer) => { viewer.current = created; setReady(true); }, []);
+  const onReady = useCallback((created: ProteinViewer) => {
+    unsubscribeSelection.current?.();
+    viewer.current = created;
+    unsubscribeSelection.current = created.subscribeSelection(selection => setState(s => ({ ...s, selection })));
+    setReady(true);
+  }, []);
   async function load(file?: File) {
     if (!viewer.current || state.loading) return;
     setState(s => ({ ...s, loading: true, error: undefined }));
@@ -30,6 +38,7 @@ export function App() {
     {!state.structure && !state.loading && <EmptyState disabled={disabled} onOpen={open} onExample={() => void load()} />}
     {(state.loading || (!ready && !state.error)) && <div className="loading-status" role="status"><span className="spinner" />{state.loading ? 'Opening structure…' : 'Preparing viewer…'}</div>}
     {state.error && <div className="error-message" role="alert"><p>{state.error}</p><button aria-label="Dismiss error" onClick={() => setState(s => ({ ...s, error: undefined }))}>×</button></div>}
-    {state.structure && <footer className="gesture-hint">Drag to rotate <span>·</span> Pinch to zoom <span>·</span> Two fingers to pan</footer>}
+    {state.selection.residues.length > 0 && <SelectionSheet selection={state.selection} disabled={state.loading} onClear={() => viewer.current?.clearSelection()} />}
+    {state.structure && !state.selection.residues.length && <footer className="gesture-hint">Drag to rotate <span>·</span> Pinch to zoom <span>·</span> Two fingers to pan <span>·</span> Tap a residue</footer>}
   </main>;
 }

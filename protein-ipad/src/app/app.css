@@ -32,3 +32,11 @@ button:disabled { opacity: .42; cursor: default; }
 .error-message button { background: transparent; font-size: 22px; padding: 8px; }
 @media (max-width: 600px) { .top-bar { padding-left: 16px; padding-right: 16px; gap: 10px; } .app-mark { display: none; } .reset-label { display: none; } nav { gap: 6px; } button { padding: 10px 12px; } h1 { font-size: 15px; } .structure-title p { font-size: 12px; } .gesture-hint { font-size: 12px; } .gesture-hint span { margin: 0 4px; } }
 @media (prefers-reduced-motion: reduce) { *, *::before, *::after { transition: none !important; animation-duration: 2s !important; } }
+.selection-sheet { position: absolute; bottom: max(20px, env(safe-area-inset-bottom)); left: 50%; transform: translateX(-50%); width: min(650px, calc(100% - 32px)); border: 1px solid #3a4d57; border-radius: 20px; background: #1c2934f5; box-shadow: 0 12px 40px #0004; padding: 20px 24px; display: flex; align-items: center; justify-content: space-between; gap: 16px; }
+.selection-sheet .eyebrow { margin: 0 0 9px; color: #ffcf70; font-size: 12px; letter-spacing: .1em; }
+.selection-sheet h2 { font-size: 20px; font-weight: 600; margin: 0; }
+.selection-sheet h2 span { color: #a9bac7; font-weight: 400; }
+.selection-detail { color: #9bafbd; font-size: 14px; margin: 8px 0 0; }
+.selection-sheet button { flex-shrink: 0; }
+.app:has(.selection-sheet) .error-message { bottom: 175px; }
+@media (max-width: 480px) { .selection-sheet { padding: 16px; gap: 12px; flex-wrap: wrap; } .selection-sheet h2 { font-size: 18px; } .gesture-hint { max-width: 280px; margin: 0 auto; line-height: 1.8; } }

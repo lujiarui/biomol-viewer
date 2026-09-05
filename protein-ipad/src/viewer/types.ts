@@ -5,5 +5,18 @@ export interface ProteinViewer {
   loadFile(file: File): Promise<StructureMetadata>;
   loadExample(): Promise<StructureMetadata>;
   resetCamera(): void;
+  clearSelection(): void;
+  getSelection(): SelectionState;
+  subscribeSelection(callback: (selection: SelectionState) => void): () => void;
   dispose(): void;
 }
+export interface ResidueRef {
+  modelId?: string;
+  chainId: string;
+  authChainId?: string;
+  residueNumber: number;
+  authResidueNumber?: number;
+  insertionCode?: string;
+  residueName: string;
+}
+export interface SelectionState { residues: ResidueRef[]; }

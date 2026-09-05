@@ -56,3 +56,52 @@ test('touch-sized controls fit portrait and split-screen widths', async ({ page 
     }
   }
 });
+
+test.describe('touch selection', () => {
+  test.use({ hasTouch: true });
+  test('real residue taps persist, replace selection, clear, and reset on file replacement', async ({ page }) => {
+    const errors: string[] = [];
+    page.on('pageerror', error => errors.push(error.message));
+    await page.goto('/');
+    await page.getByRole('button', { name: 'Try Example' }).click();
+    await expect(page.getByRole('main')).toHaveAttribute('data-loaded', 'true');
+    await page.waitForTimeout(800);
+    const sheet = page.getByRole('region', { name: 'Residue selection' });
+    // Tap the actual rendered canvas. A small grid tolerates GPU projection differences.
+    const candidates = [
+      [600, 400], [550, 400], [650, 400], [600, 350], [600, 450],
+      [550, 350], [650, 350], [550, 450], [650, 450], [500, 400],
+      [700, 400], [500, 350], [700, 350], [500, 450], [700, 450],
+    ];
+    for (const [x, y] of candidates) {
+      await page.touchscreen.tap(x, y);
+      if (await sheet.isVisible()) break;
+    }
+    await expect(sheet).toBeVisible();
+    const first = await sheet.getByRole('heading').innerText();
+    expect(first).toMatch(/[A-Z]{3} \d+ · Chain A/);
+    await page.touchscreen.tap(80, 200);
+    await expect(sheet.getByRole('heading')).toHaveText(first);
+    await page.mouse.move(20, 20);
+    await expect(sheet).toBeVisible();
+    let replaced = false;
+    for (const [x, y] of candidates) {
+      await page.touchscreen.tap(x, y);
+      if (await sheet.getByRole('heading').innerText() !== first) { replaced = true; break; }
+    }
+    expect(replaced).toBe(true);
+    await page.screenshot({ path: 'test-results/selection-landscape.png' });
+    await sheet.getByRole('button', { name: 'Clear selection' }).click();
+    await expect(sheet).toHaveCount(0);
+    for (const [x, y] of candidates) {
+      await page.touchscreen.tap(x, y);
+      if (await sheet.isVisible()) break;
+    }
+    await expect(sheet).toBeVisible();
+    await page.getByLabel('Open structure file').setInputFiles('public/examples/example.cif');
+    await expect(page.getByRole('heading', { name: 'example.cif' })).toBeVisible();
+    await expect(sheet).toHaveCount(0);
+    await page.getByRole('button', { name: 'Reset camera' }).click();
+    expect(errors).toEqual([]);
+  });
+});
