@@ -6,7 +6,7 @@ playwright-report/
 
 *.tsbuildinfo
 
-protein-ipad/shared-structures/*
-!protein-ipad/shared-structures/README.md
+shared-structures/*
+!shared-structures/README.md
 
-protein-ipad/scene-exports/
+scene-exports/
