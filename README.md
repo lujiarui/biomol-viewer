@@ -1,157 +1,247 @@
-# Biomol Viewer 1.5.0
+# Biomol Viewer
 
-A touch-first protein and molecular structure viewer. React owns the interface; Mol* 5.11.0 owns parsing, molecular representations, picking, and the camera. The original iPad-tested release is tagged `v1.0.0`.
+Biomol Viewer is an iPad-first molecular structure viewer built with React and
+[Mol*](https://molstar.org/). Run it on a Mac, open it in Safari on an iPad, and
+inspect PDB or mmCIF structures without screen mirroring or an extended display.
+
+The current release is **1.5.0**. It supports English and Simplified Chinese.
+
+## Highlights
+
+- Open local `.pdb`, `.cif`, and `.mmcif` files, fetch structures from RCSB PDB,
+  or browse a folder shared by the Mac.
+- Load several structures and control the visibility of each file, chain, and
+  molecular component.
+- Color protein chains with multiple palettes while rendering ligands, nucleic
+  acids, glycans, ions, and water distinctly.
+- Select residues or atoms, focus at atomic scale, and show complete residues
+  within 5 Å across all visible aligned structures.
+- Superpose chains or custom regions using sequence-based or coordinate-only
+  correspondence, with RMSD, temporary overlap preview, apply, and undo.
+- Export transparent PNG images and matching scene metadata to the Mac.
+- Use a bundled gallery of typical protein, ligand, complex, RNA, and DNA
+  examples without an internet connection.
 
 ## Requirements
 
-Node.js >=22, npm, and WebGL-capable Safari or Chrome. Mac and iPad should be on the same Wi-Fi for the Mac library.
+- Node.js 22 or newer
+- npm
+- Safari or Chrome with WebGL support
+- A shared local network for the Mac-to-iPad workflow
 
-## Run from the repository root
+## Quick start
 
-The project lives directly in `biomol_viewer/`; there is no nested application directory.
-
-For this compact checkout, the built app is ready:
-
-```sh
-npm start
-```
-
-Open the printed **Network URL** in iPad Safari on the same Wi-Fi. The Mac serves files; the iPad renders independently. Keep the Mac awake.
-
-For a fresh clone or to edit the app:
+Install the development dependencies and start the app from the repository root:
 
 ```sh
 npm ci
 npm run dev
 ```
 
-To build a new standalone version:
+Open `http://localhost:5173/` on the Mac. Vite also prints a network address such
+as `http://192.168.1.7:5173/`; open that address in Safari on an iPad connected to
+the same Wi-Fi.
+
+For regular iPad use, build and run the standalone server:
 
 ```sh
 npm run build
 npm start
 ```
 
-`npm start` needs only Node.js and the generated `dist/` directory. It serves the UI, Mac library, and exports on port 5173 without Vite or `node_modules`. Set `PORT` or `HOST` to override the listener. `npm run serve` rebuilds and starts this same server, so it needs development dependencies installed.
+The standalone server hosts the interface, Mac structure library, and scene
+exports on port 5173. Keep the Mac awake while the iPad is connected.
 
-## Keep disk use small
+> A fresh clone does not contain the generated `dist/` directory. Run
+> `npm ci && npm run build` before the first `npm start`.
 
-```sh
-npm run clean     # remove caches, test reports and TypeScript build state
-npm run compact   # rebuild, then remove node_modules and generated caches/reports
-```
+## Mac-to-iPad workflow
 
-Both commands preserve source, the built app, shared structures, and scene exports. After compacting, continue using `npm start`. Run `npm ci` before editing, rebuilding, or running tests again. The build directory is Git-ignored and must be generated after a fresh clone.
+By default, the server shares the repository's `shared-structures/` folder.
 
-The previous 323 MB dependency folder was a local development install, not tracked Git content. The unused PWA plugin was removed; required Mol*, compiler, bundler, and test dependencies remain declared reproducibly in the lockfile. No dependency package is partially stripped. Global npm caches and shared Playwright browser installations are left alone.
+1. Save or copy PDB/mmCIF files into `shared-structures/`. Subfolders are
+   supported.
+2. On the iPad, choose **+ Open → Mac library → Refresh**.
+3. Tap a structure to add it to the scene.
+4. After updating the same file on the Mac, choose **Files → Reload** on the
+   iPad. A parsing failure leaves the previous structure usable.
 
-## Language and automatic view
-
-Switch between **English and 简体中文** using **中文 / EN** in the toolbar. The choice persists on each browser.
-
-**Files → Auto view · Beta** rotates and fits visible components to reduce sampled projection overlap; **Undo view** restores the prior camera. It does not change alignment coordinates. **Nearby atoms · 5 Å** respects the checked Files components, including hidden water and chains. See [language and view controls](docs/view-and-language.md).
-
-## Mac → iPad workflow
-
-1. Save/copy generated `.pdb`, `.cif`, or `.mmcif` files into `shared-structures/` in this application directory. Subfolders are supported.
-2. On iPad, choose **Open → Mac library → Refresh**, then tap a file.
-3. Continue generating structures on the Mac. For an already-open filename, use **Files → Reload** on iPad. Reload reads the latest disk contents and replaces that scene entry, preserving structure/part visibility. If parsing fails, the previous structure stays usable.
-
-To use an existing output folder without copying, stop the server and restart with:
+To share an existing output folder, provide its absolute path when starting the
+server:
 
 ```sh
-BIOMOL_LIBRARY="/Users/yourname/path/to/outputs" npm start
+BIOMOL_LIBRARY="/Users/yourname/path/to/structures" npm start
 ```
 
-Use the absolute path to the folder you want to share. The API is read-only, skips hidden files and symlinks, and serves only PDB/mmCIF files within that folder. The library has no write/delete endpoints; the separate Export API writes only generated PNG images and JSON reports to the export folder. Files in the default folder are Git-ignored. Anyone who can reach this server can read the shared structures, so use a trusted LAN and do not expose it publicly. The app never uploads device-local structures to the Mac or to RCSB.
+Folder changes appear after **Refresh** or **Reload**. Restart the server only
+when changing the configured folder.
 
-For routine use after development, stop the development server and serve a built version on the same port:
+## Opening structures
 
-```sh
-BIOMOL_LIBRARY="/absolute/path/to/outputs" npm run serve
-```
+The **+ Open** dialog provides four sources:
 
-This rebuilds the app and starts its standalone server with the Mac-library API on port 5173. Keep the Mac awake. Folder changes are visible through Refresh/Reload without restarting the server. Changing the folder configuration requires a restart.
+- **From this device** uses the browser's native file picker. Device-local
+  structures stay in that browser.
+- **RCSB PDB** accepts a four-character PDB ID such as `4HHB`, as well as an
+  extended PDB ID. This option requires internet access.
+- **Examples by scenario** contains bundled monomer, protein-ligand,
+  homo/heteromer, protein-RNA, and protein-DNA structures.
+- **Mac library** reads files explicitly placed in the shared Mac folder.
 
-## Opening and managing structures
+Opening another source adds it to the current scene. Files retain their original
+coordinates until they are aligned.
 
-**Open** offers the native device file picker, the Mac library, and an RCSB PDB ID field (for example `4HHB`; extended `pdb_00004hhb` IDs also work). RCSB files are fetched directly from `https://files.rcsb.org/download/…cif`, so that option needs internet access. The bundled scenario gallery covers protein monomers, ligands, homo/heteromers, protein–RNA, and protein–DNA without external network access. The ubiquitin comparison pair is a quick alignment demo; see [example provenance](docs/examples.md).
+## Inspecting and managing a scene
 
-Each open adds a structure. **Files** toggles the scene panel, where you can show/hide entire structures, individual protein chains, or species groups, fit a structure, reload Mac-library files, and remove entries. Removal affects only the browser scene; it never deletes a Mac file. Files initially retain their original coordinates. Use **Align** to superpose them; **Duplicate** creates another instance for comparing chains within one file. Unrelated structures can overlap; hide the ones you are not inspecting. Scene state is not persisted across a page refresh.
+Use **Files** to show or hide complete structures, protein chains, water,
+ligands, nucleic acids, and other component groups. The panel also provides
+structure fitting, duplication, removal, representation modes, chain palettes,
+and residue/atom picking modes.
 
-## Coloring and close-up inspection
+Drag to rotate, pinch to zoom, and use **Reset view** to fit the visible scene.
+**Purge all structures** clears the browser scene and alignment history without
+deleting Mac source files or saved exports.
 
-The Files panel offers Vivid, Pastel, and Colorblind-friendly chain palettes. Colors are assigned to protein chains, independently of water/ligand chain records. Complexes with more than eight protein chains use distinct generated colors within the chosen palette family; colorblind distinguishability of arbitrarily large palettes is not guaranteed.
+Protein chains use colored cartoons. DNA, RNA, and ligands use element-colored
+ball-and-stick representations with contrasting carbon colors; glycans use
+carbohydrate symbols; ions use spheres. Water starts hidden.
 
-Protein uses colored cartoons. DNA/RNA and ligands use element-colored ball-and-stick representations with contrasting carbon colors, glycans use carbohydrate symbols, ions use spheres, and water starts hidden. The panel explains this visual key.
+For close inspection:
 
-For side-chain inspection:
+1. Tap a residue and choose **Nearby atoms · 5 Å**. The viewer shows complete
+   nearby residues from every open file and checked chain, using the structures'
+   current aligned coordinates. The selection panel reports atom and file counts.
+2. For a specific atom, choose **Files → Tap selects → Atom**, tap atom geometry,
+   and choose **Focus**.
+3. Use **Cartoon + sticks** or **All atoms** when the required atom is not visible
+   in the ribbon representation.
 
-1. Tap a residue, then **Nearby atoms · 5 Å** to show whole residues around it as sticks and zoom in.
-2. Or choose **Files → Representation → Cartoon + sticks / All atoms**.
-3. Choose **Tap selects → Atom**, close the panel, tap a visible atom, then **Focus**. Atom mode requires atom geometry; a ribbon alone does not identify an atom.
-4. Pinch to inspect more closely. **Reset view** fits the scene again; **Clear selection** clears marks and hides the temporary nearby-atoms view.
-
-Nearby atoms is a geometric proximity view, not a hydrogen-bond or interaction classifier. Switching to atom picking preserves an existing nearby-atoms view. The first coordinate model is loaded; biological assemblies and trajectories are not expanded.
+Nearby atoms is a geometric proximity view; it does not classify hydrogen bonds
+or other chemical interactions. **Clear selection** removes the temporary view.
 
 ## Superposition and RMSD
 
-Open two structures, then choose **Align**. Pick a fixed Reference chain and a Mobile chain, **Preview fit** for numbers or **Hold to preview overlap** for a temporary translucent overlay, inspect the RMSD and residue pairs, then **Apply alignment**. The entire mobile file moves; **Undo last alignment** restores its previous pose.
+Choose **Align** after opening structures. The default workflow aligns one chain
+to another:
 
-Whole-chain sequence correspondence is the default. Restrict either or both counterparts using author residue ranges, or enable **Tap to add/remove residues**, pick on the canvas, and capture each side with **Use current selection**. Captured regions persist while the panel is closed. Protein fits use Cα; nucleic-acid fits use C4′. Explicit sequence-order pairing supports custom equal-sized counterparts. See [alignment methods and limitations](docs/alignment.md).
+1. Select the fixed reference structure and chain.
+2. Select the mobile structure and chain.
+3. Choose **Preview fit** to calculate correspondence and RMSD, or hold
+   **Preview overlap** to inspect a temporary translucent superposition.
+4. Choose **Apply alignment** to move the complete mobile file. Use
+   **Undo last alignment** to restore its previous transform.
 
-For sequence-independent matching, choose **Coordinates only**. It supports unequal lengths and gaps using a bounded geometric search. **Quick align two files** automatically chooses the best-scoring compatible chain pair and immediately applies the fit; it is enabled only with exactly two open entries. First file stays fixed, second file moves. Review coverage and pair correspondences, especially for repetitive structures.
+Whole-chain sequence alignment is the default. Either counterpart can be
+restricted with author residue ranges or a selection captured from the canvas.
+Protein fits use Cα atoms; nucleic-acid fits use C4′ atoms.
 
-**Files → Purge all structures** clears the browser scene, selection, captured regions, and alignment history. Mac source files and saved exports remain on disk. Pinch zoom now uses lower gain with damping for finer control.
+Use **Coordinates only** for sequence-independent matching. It tolerates unequal
+residue counts and gaps within bounded search limits. With exactly two files
+open, **Quick align two files** selects a compatible chain pair and applies the
+fit immediately. Always review coverage and correspondence for repetitive or
+highly symmetric structures.
 
-## Export to the Mac
+Detailed behavior and numerical limits are documented in
+[Superposition and RMSD](docs/alignment.md).
 
-Choose **Export → Save PNG to Mac**. Transparency is on by default. Images and matching JSON reports are written to `scene-exports/`; the Export panel on either device lists them. Set `BIOMOL_EXPORTS` to change the destination. JSON records camera, file labels, visibility, transforms, and the latest alignment report; it is not a reloadable scene package. See [export workflow](docs/export.md).
+## View controls and export
 
-## Test
+- **中文 / EN** changes the interface language and remembers the choice in the
+  current browser.
+- **Files → Auto view · Beta** samples visible atoms to find an orientation with
+  less projected overlap. **Undo view** restores the previous camera without
+  changing structure coordinates.
+- **Export → Save PNG to Mac** writes a PNG with transparency enabled by default,
+  plus a JSON report containing camera, visibility, transform, file-label, and
+  latest-alignment data.
+
+Exports are saved in `scene-exports/`. To choose another directory:
 
 ```sh
-npm test
-npm run typecheck
-npm run lint
-npm run test:runtime  # after building; uses only Node.js
+BIOMOL_EXPORTS="/Users/yourname/path/to/exports" npm start
 ```
 
-## E2E
+The JSON report records the scene but is not currently a reloadable scene file.
+See [Scene image export](docs/export.md) for details.
+
+## Privacy and network scope
+
+Device-local files are parsed in the browser and are not uploaded to the Mac or
+to RCSB. RCSB requests go directly from the browser to the official RCSB download
+service.
+
+The Mac library is read-only. It serves only PDB/mmCIF files inside the configured
+folder, skips hidden files and symlinks, and provides no delete or upload API.
+Scene export is a separate workflow that writes generated PNG/JSON pairs.
+
+The standalone server is intended for a trusted local network and does not
+provide authentication. Anyone who can reach it can read the files in the shared
+structure folder. Do not expose it directly to the public internet.
+
+## Development
+
+| Command | Purpose |
+| --- | --- |
+| `npm run dev` | Start the Vite development server on the local network |
+| `npm run build` | Type-check and build the browser app and standalone server |
+| `npm start` | Run the built standalone server without Vite |
+| `npm run serve` | Build, then start the standalone server |
+| `npm test` | Run unit tests |
+| `npm run lint` | Run ESLint |
+| `npm run typecheck` | Run TypeScript checks |
+| `npm run test:e2e` | Run Chromium and WebKit browser tests |
+| `npm run test:runtime` | Test the built dependency-free server |
+| `npm run clean` | Remove caches, reports, and TypeScript build state |
+| `npm run compact` | Rebuild, then remove `node_modules` and generated caches |
+
+Install Playwright browsers before the first end-to-end test run:
 
 ```sh
 npx playwright install chromium webkit
 npm run test:e2e
 ```
 
-Browser tests use real molecular rendering and canvas taps. RCSB regression tests use a downloaded 4HHB fixture for determinism. The live RCSB browser path was also checked separately. Library E2E tests temporarily write uniquely named files in the default shared folder; run E2E without a custom BIOMOL_LIBRARY setting.
+Browser tests exercise real molecular rendering, canvas selection, Mac-library
+access, alignment, and exports. Run `npm ci` to restore development dependencies
+after `npm run compact`.
 
-## Build
+## Compact standalone runtime
 
-```sh
-npm run build
-```
+`npm run build` bundles the browser application and a Node server into `dist/`.
+Afterward, `npm start` requires Node.js and `dist/`, but does not require
+`node_modules`.
 
-## Preview
+Use `npm run compact` when you want a small working directory for routine iPad
+use. It preserves source files, the built application, Git history, shared
+structures, and saved exports. A clean checkout currently occupies about 12 MB
+after compaction; dependency size varies by platform and npm version.
 
-```sh
-npm run preview
-```
+## Architecture and current limits
 
-Preview uses its default port 4173. `npm run serve` builds and serves on port 5173 for regular iPad use.
+React owns the touch interface, while Mol* 5.11.0 owns parsing, molecular
+representations, picking, and camera control. The Mol* integration is isolated in
+`src/viewer/`; `server/library.ts` and `server/exports.ts` provide the Mac
+filesystem boundary. See [Application / Mol* boundary](docs/architecture.md).
 
-## Architecture and deployment
+The first coordinate model is loaded. Biological assemblies and trajectories are
+not expanded. Scene state does not persist through a page refresh, and exported
+JSON cannot yet restore a scene. PWA installation, cloud storage, and annotations
+are outside the current release.
 
-See [architecture](docs/architecture.md) and [iPad checklist](docs/ipad-testing.md). `src/viewer/` contains the Mol* boundary, and selections exposed to React use semantic identifiers plus a scene ID and optional atom name. `server/library.ts` and `server/exports.ts` are the isolated Mac filesystem adapters.
+A static host can serve `dist/` for device-file loading and RCSB access. The Mac
+library and Mac export features require the included Node server or the Vite
+development server.
 
-The browser app builds to static `dist/`. It can be deployed to a static host for device file loading and RCSB access. The Mac-library and Mac-export features require the Node server (`npm start`) or the Vite development/preview server. A static host can serve the browser assets but cannot expose Mac folders. The bundled `dist/server.mjs` is server code and is never served to browsers. PWA/offline installation, cloud storage, and annotations remain deferred.
+## Documentation
 
-## Example provenance
+- [Bundled examples and provenance](docs/examples.md)
+- [Superposition and RMSD](docs/alignment.md)
+- [Language and view controls](docs/view-and-language.md)
+- [Scene image export](docs/export.md)
+- [Architecture](docs/architecture.md)
+- [Physical iPad release checklist](docs/ipad-testing.md)
+- [Milestone record](docs/milestones.md)
 
-Bundled crambin: https://files.rcsb.org/download/1CRN.cif. Multichain/ligand regression fixture: https://files.rcsb.org/download/4HHB.cif. Official RCSB download documentation: https://www.rcsb.org/docs/programmatic-access/file-download-services.
-
-New: scenario examples, chain/region superposition with RMSD and undo, and transparent PNG exports saved on the Mac. See [alignment](docs/alignment.md) and [export](docs/export.md).
-
-Configuration uses `BIOMOL_LIBRARY` and `BIOMOL_EXPORTS`. Legacy `PROTEIN_LIBRARY` / `PROTEIN_EXPORTS` still work; the new names take precedence. Existing saved language preferences are migrated on first use.
-
-Nearby atoms searches all visible files and checked chains in their current aligned coordinates. Whole nearby residues are shown, with file-specific carbon colors and atom/file counts. The empty-screen **Examples by scenario** shortcut opens the gallery; **+ Open** keeps all file sources available.
+The original physical-iPad-tested release is preserved by the `v1.0.0` Git tag.
+Version 1.5.0 adds the Biomol branding, flat project layout, compact standalone
+runtime, and cross-file nearby-atom inspection.
