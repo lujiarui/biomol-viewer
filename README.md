@@ -1,12 +1,41 @@
 # Biomol Viewer
 
-Biomol Viewer is an iPad-first molecular structure viewer built with React and
-[Mol*](https://molstar.org/). Run it on a Mac, open it in Safari on an iPad, and
-inspect PDB or mmCIF structures without screen mirroring or an extended display.
+Biomol Viewer turns a Mac and an iPad into one molecular-structure workspace.
+The Mac generates, stores, and serves PDB/mmCIF files; the iPad provides the
+touch-first viewer in Safari. It uses neither screen mirroring nor an extended
+display.
 
 The current release is **1.5.0**. It supports English and Simplified Chinese.
 
-## Highlights
+**Start here:** [run the first session](#first-session-on-mac-and-ipad) ·
+[share a structure folder](#share-structures-from-the-mac) ·
+[align two structures](#superposition-and-rmsd) ·
+[export back to the Mac](#view-controls-and-export)
+
+## Built for macOS + iPadOS
+
+```mermaid
+flowchart LR
+    subgraph Mac[macOS]
+        A[Modeling tools] --> B[Structure folder]
+        B --> C[Biomol local server]
+        C --> E[PNG + JSON exports]
+    end
+    C -->|Browse and reload over Wi-Fi| D[iPadOS Safari]
+    D -->|Inspect, align, and export| C
+```
+
+| macOS handles | iPadOS handles |
+| --- | --- |
+| Generate and organize structure files | Browse the Mac structure library |
+| Serve a chosen folder over local Wi-Fi | Rotate, zoom, select, and compare by touch |
+| Receive exported PNG images and JSON reports | Align structures and send exports back to the Mac |
+
+This creates a short working loop: generate on the Mac, refresh on the iPad,
+inspect or compare, then save the view back to the Mac. Updated files can be
+reloaded without rebuilding the app or reopening the scene.
+
+## What you can do
 
 - Open local `.pdb`, `.cif`, and `.mmcif` files, fetch structures from RCSB PDB,
   or browse a folder shared by the Mac.
@@ -24,43 +53,42 @@ The current release is **1.5.0**. It supports English and Simplified Chinese.
 
 ## Requirements
 
-- Node.js 22 or newer
-- npm
-- Safari or Chrome with WebGL support
-- A shared local network for the Mac-to-iPad workflow
+- **Mac:** macOS with Node.js 22 or newer and npm
+- **iPad:** iPadOS with WebGL-capable Safari; nothing is installed on the iPad
+- **Network:** both devices on the same trusted, non-isolated Wi-Fi network
 
-## Quick start
+## First session on Mac and iPad
 
-Install the development dependencies and start the app from the repository root:
+On the Mac, clone the project and run these commands from the repository root:
 
 ```sh
 npm ci
-npm run dev
-```
-
-Open `http://localhost:5173/` on the Mac. Vite also prints a network address such
-as `http://192.168.1.7:5173/`; open that address in Safari on an iPad connected to
-the same Wi-Fi.
-
-For regular iPad use, build and run the standalone server:
-
-```sh
 npm run build
 npm start
 ```
 
-The standalone server hosts the interface, Mac structure library, and scene
-exports on port 5173. Keep the Mac awake while the iPad is connected.
+The server prints two kinds of address:
 
-> A fresh clone does not contain the generated `dist/` directory. Run
-> `npm ci && npm run build` before the first `npm start`.
+- `http://localhost:5173/` opens the viewer on the Mac.
+- A **Network** address such as `http://192.168.1.7:5173/` opens it from another
+  device on the same local network.
 
-## Mac-to-iPad workflow
+Connect the iPad to the same Wi-Fi, open the **Network** address in Safari, and
+keep the Mac awake while viewing. The molecular scene is rendered by the iPad;
+the Mac only serves the app and the files you choose to share.
+
+If the page does not open, confirm that both devices are on the same non-isolated
+network and that macOS allows incoming connections for Node.js.
+
+For development with automatic browser refresh, use `npm run dev` instead. It
+prints the same kind of local-network address.
+
+## Share structures from the Mac
 
 By default, the server shares the repository's `shared-structures/` folder.
 
-1. Save or copy PDB/mmCIF files into `shared-structures/`. Subfolders are
-   supported.
+1. Save or copy `.pdb`, `.cif`, or `.mmcif` files into `shared-structures/`.
+   Subfolders are supported.
 2. On the iPad, choose **+ Open → Mac library → Refresh**.
 3. Tap a structure to add it to the scene.
 4. After updating the same file on the Mac, choose **Files → Reload** on the
@@ -75,6 +103,14 @@ BIOMOL_LIBRARY="/Users/yourname/path/to/structures" npm start
 
 Folder changes appear after **Refresh** or **Reload**. Restart the server only
 when changing the configured folder.
+
+You can configure the export folder at the same time:
+
+```sh
+BIOMOL_LIBRARY="/Users/yourname/structures" \
+BIOMOL_EXPORTS="/Users/yourname/figures" \
+npm start
+```
 
 ## Opening structures
 
