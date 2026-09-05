@@ -107,4 +107,34 @@ nav { max-width:100%; flex:0 1 auto; }
   .structure-title { padding-right:88px; min-height:44px; }
 }
 @media (max-width:450px) { nav button { padding-left:10px; padding-right:10px; } }
-nav .language-switch { min-height:44px; font-size:12px; padding:6px 9px; border-radius:999px; background:transparent; border-color:#465b68; align-self:center; }
+/* A compact visual surface inside a full-height iPad touch target. */
+nav .language-switch {
+  position: relative;
+  isolation: isolate;
+  min-height: 44px;
+  padding: 6px 11px;
+  border: 0;
+  border-radius: 10px;
+  background: transparent;
+  color: #c4d4df;
+  font-size: 12px;
+  font-weight: 500;
+  align-self: center;
+}
+nav .language-switch::before {
+  content: '';
+  position: absolute;
+  inset: 6px 0;
+  z-index: -1;
+  border-radius: 10px;
+  background: #a6c8dc0a;
+  box-shadow: inset 0 0 0 1px #b4d4e414;
+  transition: background 150ms, box-shadow 150ms;
+}
+nav .language-switch:hover:not(:disabled) { background: transparent; color: #edf5fa; }
+nav .language-switch:hover:not(:disabled)::before {
+  background: #a6c8dc14;
+  box-shadow: inset 0 0 0 1px #b4d4e428;
+}
+nav .language-switch:active:not(:disabled)::before { background: #a6c8dc20; }
+@media (max-width:750px) { nav .language-switch { position: absolute; } }
