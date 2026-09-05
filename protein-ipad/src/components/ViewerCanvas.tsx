@@ -1,23 +1,18 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef } from 'react';
 import { ViewerController } from '../viewer/ViewerController';
-export function ViewerCanvas() {
+import type { ProteinViewer } from '../viewer/types';
+interface Props { onReady: (viewer: ProteinViewer) => void; onError: (error: unknown) => void; }
+export function ViewerCanvas({ onReady, onError }: Props) {
   const host = useRef<HTMLDivElement>(null);
-  const [error, setError] = useState('');
-  const [ready, setReady] = useState(false);
   useEffect(() => {
     const abort = new AbortController();
-    let viewer: ViewerController | undefined;
-    void (async () => {
-      const created = await ViewerController.create(host.current!, abort.signal);
+    let viewer: ProteinViewer | undefined;
+    void ViewerController.create(host.current!, abort.signal).then(created => {
       if (abort.signal.aborted) { created.dispose(); return; }
       viewer = created;
-      await viewer.loadExample();
-      if (!abort.signal.aborted) setReady(true);
-    })().catch(e => { if (!abort.signal.aborted) setError(String(e)); });
+      onReady(created);
+    }).catch(error => { if (!abort.signal.aborted) onError(error); });
     return () => { abort.abort(); viewer?.dispose(); };
-  }, []);
-  return <main style={{ position: 'relative', height: '100%', width: '100%' }} aria-label="Protein viewer" data-ready={ready}>
-    <div ref={host} style={{ position: 'absolute', inset: 0, touchAction: 'none' }} />
-    {error && <p role="alert">{error}</p>}
-  </main>;
+  }, [onReady, onError]);
+  return <div ref={host} className="viewer-canvas" aria-label="Interactive protein structure" />;
 }

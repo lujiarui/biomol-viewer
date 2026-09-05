@@ -1,24 +1,56 @@
 import type { PluginContext } from 'molstar/lib/mol-plugin/context';
 import { createViewer } from './createViewer';
-import { addDefaultRepresentations } from './representations';
+import { detectFormat, loadStructure } from './structureLoader';
+import type { ProteinViewer, StructureMetadata } from './types';
 
-export class ViewerController {
+export class ViewerController implements ProteinViewer {
+  private dataRef?: string;
+  private disposed = false;
+  private pending?: Promise<StructureMetadata>;
+  private abort = new AbortController();
   private constructor(private plugin: PluginContext, private observer: ResizeObserver) {}
-  static async create(host: HTMLDivElement, signal: AbortSignal) {
+  static async create(host: HTMLDivElement, signal: AbortSignal): Promise<ProteinViewer> {
     const plugin = await createViewer(host, signal);
     const observer = new ResizeObserver(() => plugin.handleResize());
     observer.observe(host);
     return new ViewerController(plugin, observer);
   }
-  async loadExample() {
-    const response = await fetch(`${import.meta.env.BASE_URL}examples/example.cif`);
-    if (!response.ok) throw new Error('Unable to load the bundled example.');
-    const data = await this.plugin.builders.data.rawData({ data: await response.text(), label: 'Crambin · 1CRN' });
-    const trajectory = await this.plugin.builders.structure.parseTrajectory(data, 'mmcif');
-    const model = await this.plugin.builders.structure.createModel(trajectory);
-    const structure = await this.plugin.builders.structure.createStructure(model, { name: 'model', params: {} });
-    await addDefaultRepresentations(this.plugin, structure);
-    this.plugin.managers.camera.reset();
+  private runLoad(read: () => Promise<File>) {
+    if (this.disposed) return Promise.reject(new Error('Viewer is closed.'));
+    if (this.pending) return Promise.reject(new Error('A structure is already loading.'));
+    const task = (async () => {
+      const file = await read();
+      const format = detectFormat(file.name);
+      const text = await file.text();
+      this.abort.signal.throwIfAborted();
+      const loaded = await loadStructure(this.plugin, text, file.name, format);
+      if (this.dataRef) await this.plugin.build().delete(this.dataRef).commit();
+      this.dataRef = loaded.dataRef;
+      if (!this.disposed) this.resetCamera();
+      return loaded.metadata;
+    })();
+    this.pending = task;
+    // Both paths release the lock without creating an unhandled rejected promise.
+    void task.then(() => { this.pending = undefined; }, () => { this.pending = undefined; });
+    return task;
   }
-  dispose() { this.observer.disconnect(); this.plugin.dispose(); }
+  loadFile(file: File) { return this.runLoad(async () => file); }
+  loadExample() {
+    return this.runLoad(async () => {
+      const response = await fetch(`${import.meta.env.BASE_URL}examples/example.cif`, { signal: this.abort.signal });
+      if (!response.ok) throw new Error('Unable to load the bundled example.');
+      return new File([await response.text()], 'Crambin · 1CRN.cif');
+    });
+  }
+  resetCamera() { if (!this.disposed) this.plugin.managers.camera.reset(); }
+  dispose() {
+    if (this.disposed) return;
+    this.disposed = true;
+    this.abort.abort();
+    this.observer.disconnect();
+    this.plugin.unmount();
+    this.plugin.animationLoop.stop();
+    if (this.pending) void this.pending.then(() => this.plugin.dispose(), () => this.plugin.dispose());
+    else this.plugin.dispose();
+  }
 }
