@@ -27,7 +27,7 @@ export async function renderPart(plugin: PluginContext, part: RenderPart, mode: 
     await reps.addRepresentation(part.node, { type: ion ? 'spacefill' : glycan ? 'carbohydrate' : 'ball-and-stick', color: glycan ? 'carbohydrate-symbol' : 'element-symbol', colorParams: glycan ? {} : { carbonColor: { name: 'uniform', params: { value: Color(part.color) } } } });
   }
 }
-export async function addDefaultRepresentations(plugin: PluginContext, structure: StructureNode, metadata: StructureMetadata, palette: Palette = 'vivid', mode: RepresentationMode = 'cartoon') {
+export async function addDefaultRepresentations(plugin: PluginContext, structure: StructureNode, metadata: StructureMetadata, palette: Palette = 'vivid', mode: RepresentationMode = 'cartoon', colorOffset = 0) {
   const parts: RenderPart[] = [];
 
   for (let i = 0; i < metadata.chains.length; i++) {
@@ -38,8 +38,8 @@ export async function addDefaultRepresentations(plugin: PluginContext, structure
     const color = palettes[palette][0];
     parts.push({ node, protein: true, color, state: { id: `protein-${chain.chainId}`, label: `Protein · Chain ${chain.authChainId || chain.chainId}${chain.authChainId !== chain.chainId ? ` (${chain.chainId})` : ''}`, visible: true, color: '#' + color.toString(16).padStart(6, '0') } });
   }
-  const colors = chainColors(palette, parts.length);
-  parts.forEach((part, index) => { part.color = colors[index]; part.state.color = '#' + part.color.toString(16).padStart(6, '0'); });
+  const colors = chainColors(palette, Math.max(8, parts.length));
+  parts.forEach((part, index) => { part.color = colors[(index + colorOffset) % colors.length]; part.state.color = '#' + part.color.toString(16).padStart(6, '0'); });
   const categories = [ ['nucleic', 'DNA / RNA', 0xba90f5], ['ligand', 'Ligands', 0xffcf70], ['branched', 'Glycans', 0xee90bf], ['ion', 'Ions', 0xaaccff], ['lipid', 'Lipids', 0xe6a259], ['water', 'Water', 0xb1cde6] ] as const;
   for (const [query, label, color] of categories) {
     const node = await plugin.builders.structure.tryCreateComponentFromExpression(structure, query === 'ligand' ? MS.struct.modifier.exceptBy({ 0: Q.ligand.expression, by: Q.lipid.expression }) : Q[query].expression, query);

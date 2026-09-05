@@ -31,12 +31,12 @@ test('local mmCIF and PDB replace the example, malformed files recover', async (
   await expect(page.getByText(/46 residues · 327 atoms/)).toBeVisible();
   const picker = page.getByLabel('Open structure file');
   await picker.setInputFiles('public/examples/example.cif');
-  await expect(page.getByText(/example.cif/)).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'example.cif', exact: true })).toBeVisible();
   await picker.setInputFiles({ name: 'broken.cif', mimeType: 'text/plain', buffer: Buffer.from('not a structure') });
   await expect(page.getByRole('alert')).toContainText('Could not read');
-  await expect(page.getByText(/example.cif/)).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'example.cif', exact: true })).toBeVisible();
   await picker.setInputFiles({ name: 'small.pdb', mimeType: 'text/plain', buffer: Buffer.from('HEADER    TEST\nATOM      1  N   ALA A   1      11.104  13.207   9.000  1.00 20.00           N\nATOM      2  CA  ALA A   1      12.104  13.207   9.000  1.00 20.00           C\nATOM      3  C   ALA A   1      13.104  13.207   9.000  1.00 20.00           C\nEND\n') });
-  await expect(page.getByText(/small.pdb/)).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'small.pdb', exact: true })).toBeVisible();
   await expect(page.getByText(/1 residues · 3 atoms/)).toBeVisible();
   await expect(page.getByRole('alert')).toHaveCount(0);
   await expect(page.locator('canvas')).toHaveCount(1);

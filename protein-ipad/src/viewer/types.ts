@@ -1,16 +1,23 @@
+import type { AlignmentRequest, AlignmentReport, PolymerKind } from './alignment';
 export type StructureFormat = 'pdb' | 'mmcif';
 export type Palette = 'vivid' | 'pastel' | 'accessible';
 export type RepresentationMode = 'cartoon' | 'cartoon-sticks' | 'atoms';
 export interface ChainSummary { chainId: string; authChainId: string; residueCount: number; }
 export interface StructureMetadata { fileName: string; format: StructureFormat; chains: ChainSummary[]; residueCount: number; atomCount: number; }
 export interface ScenePart { id: string; label: string; visible: boolean; color?: string; }
-export interface SceneStructure { id: string; metadata: StructureMetadata; visible: boolean; parts: ScenePart[]; macFile?: string; }
+export interface SceneStructure { id: string; metadata: StructureMetadata; visible: boolean; parts: ScenePart[]; macFile?: string; alignmentChains: { chainId: string; authChainId: string; kind: PolymerKind; count: number }[]; }
 export interface ProteinViewer {
   loadFile(file: File): Promise<StructureMetadata>;
-  loadExample(): Promise<StructureMetadata>;
+  loadExample(id?: string): Promise<StructureMetadata>;
   loadRcsb(id: string): Promise<StructureMetadata>;
   reloadMacStructure(id: string): Promise<StructureMetadata>;
   loadMacFile(name: string): Promise<StructureMetadata>;
+  duplicateStructure(id: string): Promise<StructureMetadata>;
+  setSelectionMode(add: boolean): void;
+  previewAlignment(request: AlignmentRequest): AlignmentReport;
+  applyAlignment(request: AlignmentRequest): Promise<AlignmentReport>;
+  undoAlignment(): Promise<void>;
+  exportImage(transparent: boolean): Promise<{ name: string; url: string; metadataUrl: string }>;
   getScene(): SceneStructure[];
   setVisibility(id: string, visible: boolean, partId?: string): void;
   removeStructure(id: string): Promise<void>;

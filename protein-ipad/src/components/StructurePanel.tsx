@@ -2,7 +2,7 @@ import type { Palette, RepresentationMode, SceneStructure } from '../viewer/type
 interface Props {
   scene: SceneStructure[]; busy: boolean; palette: Palette; mode: RepresentationMode; picking: 'residue' | 'atom';
   onClose: () => void; onVisibility: (id: string, visible: boolean, partId?: string) => void;
-  onReload: (id: string) => void; onRemove: (id: string) => void; onFocus: (id: string) => void;
+  onDuplicate: (id: string) => void; onReload: (id: string) => void; onRemove: (id: string) => void; onFocus: (id: string) => void;
   onStyle: (palette: Palette, mode: RepresentationMode) => void; onPicking: (mode: 'residue' | 'atom') => void;
 }
 export function StructurePanel(p: Props) {
@@ -16,7 +16,7 @@ export function StructurePanel(p: Props) {
     {!p.scene.length && <p className="muted">Open structures to manage them here.</p>}
     {p.scene.map(entry => <article key={entry.id} className="scene-entry">
       <label className="check-row"><input type="checkbox" checked={entry.visible} disabled={p.busy} onChange={e => p.onVisibility(entry.id, e.target.checked)} /><strong>{entry.metadata.fileName}</strong></label>
-      <div className="entry-actions">{entry.macFile && <button disabled={p.busy} onClick={() => p.onReload(entry.id)}>Reload</button>}<button disabled={p.busy || !entry.visible} onClick={() => p.onFocus(entry.id)}>Fit</button><button disabled={p.busy} onClick={() => p.onRemove(entry.id)}>Remove</button></div>
+      <div className="entry-actions"><button disabled={p.busy} onClick={()=>p.onDuplicate(entry.id)}>Duplicate</button>{entry.macFile && <button disabled={p.busy} onClick={() => p.onReload(entry.id)}>Reload</button>}<button disabled={p.busy || !entry.visible} onClick={() => p.onFocus(entry.id)}>Fit</button><button disabled={p.busy} onClick={() => p.onRemove(entry.id)}>Remove</button></div>
       {entry.parts.map(part => <label key={part.id} className="check-row part-row"><input type="checkbox" checked={part.visible} disabled={p.busy || !entry.visible} onChange={e => p.onVisibility(entry.id, e.target.checked, part.id)} />{part.color && <span className="swatch" style={{ background: part.color }} />}<span>{part.label}</span></label>)}
     </article>)}
     <p className="muted panel-note">Protein: chain-colored ribbons. DNA/RNA and ligands: element-colored atoms. Glycans: symbols. Ions: spheres. Water starts hidden.</p>

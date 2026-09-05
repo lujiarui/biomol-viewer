@@ -11,3 +11,7 @@ Physical iPad checks remain unchecked in `ipad-testing.md`. Subsequent implement
 ## 1.1 expansion
 
 The user confirmed success on physical iPad and requested a v1.0.0 checkpoint. Commit 7aaf5e5 and annotated tag v1.0.0 preserve that version. The subsequent 1.1 scope adds a read-only Mac folder library with reload, RCSB ID loading, multistructure scene management, chain palettes and species styling, and atomic close-up inspection. These requirements supersede the earlier V0 deferrals for remote loading and multiple structures. PWA, alignment, AI, and annotations remain out of scope.
+
+## 1.2 — comparison and Mac exports
+
+Seven bundled scenario/comparison examples, sequence-guided chain and independently captured region fits, previewed RMSD and complete residue pairs, applied world transforms with undo, distinct structure colors, and transparent PNG plus JSON export to the Mac. Numerical tests cover known rigid transforms, reflections, outliers, missing anchors, sequence gaps, discontinuous regions, insertion codes, invalid geometry, and real ubiquitin structures. Browser coverage checks applied transforms, undo, touch captures, actual rendered examples, PNG alpha, and cross-device export retrieval.

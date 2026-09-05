@@ -1,3 +1,5 @@
+import { StateTransforms } from 'molstar/lib/mol-plugin-state/transforms';
+import { Mat4 } from 'molstar/lib/mol-math/linear-algebra';
 import type { PluginContext } from 'molstar/lib/mol-plugin/context';
 import { Structure, StructureElement, StructureProperties, Unit } from 'molstar/lib/mol-model/structure';
 import { addDefaultRepresentations } from './representations';
@@ -35,18 +37,19 @@ export function extractMetadata(structure: Structure, fileName: string, format: 
 }
 
 /** Stage a new data subtree; caller deletes the old tree only after this succeeds. */
-export async function loadStructure(plugin: PluginContext, text: string, fileName: string, format: StructureFormat, palette: Palette = 'vivid', mode: RepresentationMode = 'cartoon') {
+export async function loadStructure(plugin: PluginContext, text: string, fileName: string, format: StructureFormat, palette: Palette = 'vivid', mode: RepresentationMode = 'cartoon', colorOffset = 0) {
   if (!text.trim()) throw new Error('This file is empty. Choose a PDB or mmCIF structure.');
   const data = await plugin.builders.data.rawData({ data: text, label: fileName });
   try {
     const trajectory = await plugin.builders.structure.parseTrajectory(data, format);
     if (!trajectory.obj?.data.frameCount) throw new Error('No molecular models found.');
     const model = await plugin.builders.structure.createModel(trajectory, { modelIndex: 0 });
-    const structure = await plugin.builders.structure.createStructure(model, { name: 'model', params: {} });
+    const original = await plugin.builders.structure.createStructure(model, { name: 'model', params: {} });
+    const structure = await plugin.build().to(original).apply(StateTransforms.Model.TransformStructureConformation, { transform: { name: 'matrix', params: { data: Mat4.identity(), transpose: false } } }).commit();
     if (!structure.obj?.data.elementCount) throw new Error('No atoms found.');
     const metadata = extractMetadata(structure.obj.data, fileName, format);
-    const parts = await addDefaultRepresentations(plugin, structure, metadata, palette, mode);
-    return { dataRef: data.ref, metadata, structure, parts };
+    const parts = await addDefaultRepresentations(plugin, structure, metadata, palette, mode, colorOffset);
+    return { dataRef: data.ref, metadata, structure, parts, sourceText: text, colorOffset };
   } catch (error) {
     await plugin.build().delete(data.ref).commit();
     throw new Error('Could not read this structure. Check that it contains valid PDB or mmCIF atom coordinates.', { cause: error });

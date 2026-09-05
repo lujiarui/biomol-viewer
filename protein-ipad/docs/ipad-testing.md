@@ -46,3 +46,15 @@ Record device/model, iPadOS version, browser, date, and commit with each test pa
 - [ ] Nearby atoms · 5 Å makes side-chain inspection comfortable
 - [ ] Atom picking and Focus work on visible sticks/spheres
 - [ ] Scene panel, Open dialog, and selection actions remain usable in portrait/split view
+
+## Version 1.2 physical iPad checks
+
+The following are covered by automated Chromium/WebKit tests with real molecular rendering and touch input; repeat them on the physical iPad (the earlier physical-device success applies to v1.0.0).
+
+- Open each scenario example and inspect its chains and non-protein species.
+- Load the ubiquitin comparison pair, preview the 76 Cα-pair fit, apply it, inspect the overlay, and undo.
+- Enter a reference-only region, then both regions. Check the pair table before applying.
+- Enable additive residue picking, close Align, tap several residues, reopen and capture Reference. Repeat for Mobile; confirm the Reference capture persists.
+- Duplicate a file when comparing two chains from that same source.
+- Export with transparency enabled. On the Mac, open the PNG from scene-exports or the Export panel, and inspect its accompanying JSON report.
+- Repeat portrait, landscape, Split View, and several align/undo cycles; confirm page refresh intentionally clears the browser scene while saved exports remain.

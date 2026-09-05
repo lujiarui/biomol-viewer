@@ -1,4 +1,4 @@
-# Protein 1.1
+# Protein 1.2
 
 A touch-first protein and molecular structure viewer. React owns the interface; Mol* 5.11.0 owns parsing, molecular representations, picking, and the camera. The original iPad-tested release is tagged `v1.0.0`.
 
@@ -32,7 +32,7 @@ To use an existing output folder without copying, stop the server and restart wi
 PROTEIN_LIBRARY="/Users/yourname/path/to/outputs" npm run dev
 ```
 
-Use the absolute path to the folder you want to share. The API is read-only, skips hidden files and symlinks, and serves only PDB/mmCIF files within that folder. There are no write/delete endpoints. Files in the default folder are Git-ignored. Anyone who can reach this server can read the shared structures, so use a trusted LAN and do not expose it publicly. The app never uploads device-local structures to the Mac or to RCSB.
+Use the absolute path to the folder you want to share. The API is read-only, skips hidden files and symlinks, and serves only PDB/mmCIF files within that folder. The library has no write/delete endpoints; the separate Export API writes only generated PNG images and JSON reports to the export folder. Files in the default folder are Git-ignored. Anyone who can reach this server can read the shared structures, so use a trusted LAN and do not expose it publicly. The app never uploads device-local structures to the Mac or to RCSB.
 
 For routine use after development, stop the development server and serve a built version on the same port:
 
@@ -44,9 +44,9 @@ This builds the app and starts the production preview with the same Mac-library 
 
 ## Opening and managing structures
 
-**Open** offers the native device file picker, the Mac library, and an RCSB PDB ID field (for example `4HHB`; extended `pdb_00004hhb` IDs also work). RCSB files are fetched directly from `https://files.rcsb.org/download/…cif`, so that option needs internet access. The bundled crambin example needs no external network.
+**Open** offers the native device file picker, the Mac library, and an RCSB PDB ID field (for example `4HHB`; extended `pdb_00004hhb` IDs also work). RCSB files are fetched directly from `https://files.rcsb.org/download/…cif`, so that option needs internet access. The bundled scenario gallery covers protein monomers, ligands, homo/heteromers, protein–RNA, and protein–DNA without external network access. The ubiquitin comparison pair is a quick alignment demo; see [example provenance](docs/examples.md).
 
-Each open adds a structure. **Files** toggles the scene panel, where you can show/hide entire structures, individual protein chains, or species groups, fit a structure, reload Mac-library files, and remove entries. Removal affects only the browser scene; it never deletes a Mac file. Files retain their original coordinates and are not aligned. Unrelated structures can overlap; hide the ones you are not inspecting. Scene state is not persisted across a page refresh.
+Each open adds a structure. **Files** toggles the scene panel, where you can show/hide entire structures, individual protein chains, or species groups, fit a structure, reload Mac-library files, and remove entries. Removal affects only the browser scene; it never deletes a Mac file. Files initially retain their original coordinates. Use **Align** to superpose them; **Duplicate** creates another instance for comparing chains within one file. Unrelated structures can overlap; hide the ones you are not inspecting. Scene state is not persisted across a page refresh.
 
 ## Coloring and close-up inspection
 
@@ -62,6 +62,16 @@ For side-chain inspection:
 4. Pinch to inspect more closely. **Reset view** fits the scene again; **Clear selection** clears marks and hides the temporary nearby-atoms view.
 
 Nearby atoms is a geometric proximity view, not a hydrogen-bond or interaction classifier. Switching to atom picking preserves an existing nearby-atoms view. The first coordinate model is loaded; biological assemblies and trajectories are not expanded.
+
+## Superposition and RMSD
+
+Open two structures, then choose **Align**. Pick a fixed Reference chain and a Mobile chain, **Preview fit**, inspect the RMSD and residue pairs, then **Apply alignment**. The entire mobile file moves; **Undo last alignment** restores its previous pose.
+
+Whole-chain sequence correspondence is the default. Restrict either or both counterparts using author residue ranges, or enable **Tap to add/remove residues**, pick on the canvas, and capture each side with **Use current selection**. Captured regions persist while the panel is closed. Protein fits use Cα; nucleic-acid fits use C4′. Explicit sequence-order pairing supports custom equal-sized counterparts. See [alignment methods and limitations](docs/alignment.md).
+
+## Export to the Mac
+
+Choose **Export → Save PNG to Mac**. Transparency is on by default. Images and matching JSON reports are written to `scene-exports/`; the Export panel on either device lists them. Set `PROTEIN_EXPORTS` to change the destination. JSON records camera, file labels, visibility, transforms, and the latest alignment report; it is not a reloadable scene package. See [export workflow](docs/export.md).
 
 ## Test
 
@@ -96,10 +106,12 @@ Preview uses its default port 4173. `npm run serve` builds and serves on port 51
 
 ## Architecture and deployment
 
-See [architecture](docs/architecture.md) and [iPad checklist](docs/ipad-testing.md). `src/viewer/` contains the Mol* boundary, and selections exposed to React use semantic identifiers plus a scene ID and optional atom name. `server/library.ts` is the isolated Mac filesystem adapter.
+See [architecture](docs/architecture.md) and [iPad checklist](docs/ipad-testing.md). `src/viewer/` contains the Mol* boundary, and selections exposed to React use semantic identifiers plus a scene ID and optional atom name. `server/library.ts` and `server/exports.ts` are the isolated Mac filesystem adapters.
 
-The browser app builds to static `dist/`. It can be deployed to a static host for device file loading and RCSB access. The Mac-library feature requires the Mac-hosted Vite development or preview server; uploading `dist/` alone cannot expose the Mac folder. PWA/offline installation, cloud storage, analysis, and annotations remain deferred.
+The browser app builds to static `dist/`. It can be deployed to a static host for device file loading and RCSB access. The Mac-library and Mac-export features require the Mac-hosted Vite development or preview server; uploading `dist/` alone cannot expose the Mac folder. PWA/offline installation, cloud storage, and annotations remain deferred.
 
 ## Example provenance
 
 Bundled crambin: https://files.rcsb.org/download/1CRN.cif. Multichain/ligand regression fixture: https://files.rcsb.org/download/4HHB.cif. Official RCSB download documentation: https://www.rcsb.org/docs/programmatic-access/file-download-services.
+
+New: scenario examples, chain/region superposition with RMSD and undo, and transparent PNG exports saved on the Mac. See [alignment](docs/alignment.md) and [export](docs/export.md).

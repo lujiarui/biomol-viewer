@@ -8,3 +8,5 @@ playwright-report/
 
 protein-ipad/shared-structures/*
 !protein-ipad/shared-structures/README.md
+
+protein-ipad/scene-exports/

@@ -17,3 +17,11 @@ Selections contain semantic residue identity plus the owning scene ID, filename,
 On unmount the controller aborts fetches, disconnects ResizeObserver and subscriptions, unmounts the canvas, and stops the animation loop. Final plugin disposal waits for an in-flight mutation to settle. Tests cover disposal while parsing, actual CIF-to-residue conversion, library boundaries, palette selection, and browser workflows.
 
 Official integration reference: https://molstar.org/docs/plugin/instance/#plugincontext-without-built-in-react-ui. Mol* 5.11.0 installed types/source are the implementation authority. The unavoidable state-tree visibility helper is isolated in ViewerController.
+
+## Superposition and exports (1.2)
+
+Each loaded structure has a dedicated TransformStructureConformation node before its components. Alignment computes a world-space rigid transform and left-composes it with that entry's existing transform; applying and undoing update the same node. No source coordinates are rewritten. Duplicate reloads the source into a distinct scene instance. Color offsets distinguish successive structures while reload retains its offset.
+
+`alignment.ts` extracts observed polymer sequences and representative atoms, resolves independent endpoint regions, maps sequence correspondences, and validates a rigid least-squares fit. React receives semantic chains and reports. Captured region slots live in the mounted AlignmentPanel; picking remains available when the panel is closed. Picked component loci are remapped onto the entry structure before multi-residue set operations.
+
+`server/exports.ts` provides bounded, same-origin PNG/JSON writes and read-only listings for both development and preview. Export uses Mol* viewportScreenshot with temporary transparency settings and restores those settings afterward. It saves only the molecular viewport, without React panels. The metadata records state and the latest fit, but does not contain source structure files or implement scene restoration.

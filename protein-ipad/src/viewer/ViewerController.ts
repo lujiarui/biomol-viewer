@@ -3,6 +3,10 @@ import { StructureElement, StructureProperties, Bond } from 'molstar/lib/mol-mod
 import { MolScriptBuilder as MS } from 'molstar/lib/mol-script/language/builder';
 import { setSubtreeVisibility } from 'molstar/lib/mol-plugin/behavior/static/state';
 import { ButtonsType } from 'molstar/lib/mol-util/input/input-observer';
+import { Mat4 } from 'molstar/lib/mol-math/linear-algebra';
+import { extractAlignmentChains, fitChains, residueKey } from './alignment';
+import type { AlignmentRequest, AlignmentReport } from './alignment';
+import { examplePath } from './examples';
 import { createViewer } from './createViewer';
 import { detectFormat, loadStructure } from './structureLoader';
 import { residueFromLoci } from './selection';
@@ -11,7 +15,11 @@ import { fetchStructure, rcsbId } from './sources';
 import type { ProteinViewer, SelectionState, SceneStructure, Palette, RepresentationMode } from './types';
 type Loaded = Awaited<ReturnType<typeof loadStructure>>;
 export class ViewerController implements ProteinViewer {
-  private entries = new Map<string, Loaded & { visible: boolean; macFile?: string }>();
+  private entries = new Map<string, Loaded & { visible: boolean; macFile?: string; matrix: Mat4 }>();
+  private addSelection = false;
+  private colorSerial = 0;
+  private undo: { id: string; matrix: Mat4 }[] = [];
+  private lastAlignment?: { request: AlignmentRequest; report: AlignmentReport };
   private selection: SelectionState = { residues: [] };
   private selectedLoci?: StructureElement.Loci;
   private detailRef?: string;
@@ -32,8 +40,23 @@ export class ViewerController implements ProteinViewer {
       if (!picked) return;
       const entry = [...this.entries.entries()].find(([, item]) => item.structure.obj?.data.root === picked.loci.structure.root);
       if (!entry) return;
+      picked.loci = StructureElement.Loci.remap(picked.loci, entry[1].structure.obj!.data);
       if (this.picking === 'atom' && (!StructureElement.Loci.is(raw) || StructureElement.Loci.size(raw) !== 1)) return;
-      this.selectedLoci = this.picking === 'atom' && StructureElement.Loci.is(raw) ? raw : picked.loci;
+      if (this.addSelection && this.picking === 'residue') {
+        const same = this.selection.structureId === entry[0];
+        const residues = same ? [...this.selection.residues] : [];
+        const index = residues.findIndex(r => residueKey(r) === residueKey(picked.residue));
+        if (index >= 0) {
+          residues.splice(index, 1); plugin.managers.interactivity.lociSelects.deselect({ loci: picked.loci }, false);
+          if (this.selectedLoci) this.selectedLoci = StructureElement.Loci.subtract(this.selectedLoci, picked.loci);
+        } else {
+          if (!same) this.clearSelection();
+          residues.push(picked.residue); plugin.managers.interactivity.lociSelects.select({ loci: picked.loci }, false);
+          this.selectedLoci = same && this.selectedLoci ? StructureElement.Loci.union(this.selectedLoci, picked.loci) : picked.loci;
+        }
+        this.selection = { residues, structureId: entry[0], fileName: entry[1].metadata.fileName }; this.emitSelection(); return;
+      }
+      this.selectedLoci = this.picking === 'atom' && StructureElement.Loci.is(raw) ? StructureElement.Loci.remap(raw, entry[1].structure.obj!.data) : picked.loci;
       plugin.managers.interactivity.lociSelects.selectOnly({ loci: this.selectedLoci }, false);
       const location = StructureElement.Loci.getFirstLocation(this.selectedLoci);
       this.selection = { residues: [picked.residue], structureId: entry[0], fileName: entry[1].metadata.fileName, ...(this.picking === 'atom' && location ? { atomName: StructureProperties.atom.label_atom_id(location) } : {}) };
@@ -71,15 +94,17 @@ export class ViewerController implements ProteinViewer {
       const file = await read();
       const format = detectFormat(file.name);
       const text = await file.text(); this.abort.signal.throwIfAborted();
-      const loaded = await loadStructure(this.plugin, text, file.name, format, this.palette, this.mode);
+      const offset = replaceId ? this.entries.get(replaceId)?.colorOffset ?? this.colorSerial : this.colorSerial;
+      const loaded = await loadStructure(this.plugin, text, file.name, format, this.palette, this.mode, offset);
+      if (!replaceId) this.colorSerial++;
       if (!this.disposed) {
         this.clearSelection();
         const previous = replaceId ? this.entries.get(replaceId) : undefined;
         if (previous) {
           for (const part of loaded.parts) part.state.visible = previous.parts.find(p => p.state.id === part.state.id)?.state.visible ?? part.state.visible;
-          await this.plugin.build().delete(replaceId!).commit(); this.entries.delete(replaceId!);
+          await this.plugin.build().delete(replaceId!).commit(); this.entries.delete(replaceId!); this.undo=this.undo.filter(u=>u.id!==replaceId); this.lastAlignment=undefined;
         }
-        this.entries.set(loaded.dataRef, { ...loaded, visible: previous?.visible ?? true, macFile });
+        this.entries.set(loaded.dataRef, { ...loaded, visible: previous?.visible ?? true, macFile, matrix: Mat4.identity() });
         this.applyVisibility(loaded.dataRef);
         this.focusStructure(loaded.dataRef);
       }
@@ -87,7 +112,7 @@ export class ViewerController implements ProteinViewer {
     });
   }
   loadFile(file: File) { return this.runLoad(async () => file); }
-  loadExample() { return this.runLoad(() => fetchStructure(`${import.meta.env.BASE_URL}examples/example.cif`, 'Crambin · 1CRN.cif', this.abort.signal)); }
+  loadExample(id?: string) { return this.runLoad(() => fetchStructure(id ? examplePath(id) : `${import.meta.env.BASE_URL}examples/example.cif`, id ? `${id}.cif` : 'Crambin · 1CRN.cif', this.abort.signal)); }
   loadRcsb(input: string) { return this.runLoad(() => { const id = rcsbId(input); return fetchStructure(`https://files.rcsb.org/download/${id}.cif`, `${id}.cif`, this.abort.signal); }); }
   loadMacFile(name: string) { return this.runLoad(() => fetchStructure(`/api/library/file?name=${encodeURIComponent(name)}`, name, this.abort.signal), name); }
   reloadMacStructure(id: string) {
@@ -95,7 +120,59 @@ export class ViewerController implements ProteinViewer {
     if (!name) return Promise.reject(new Error('This structure is not from the Mac library.'));
     return this.runLoad(() => fetchStructure(`/api/library/file?name=${encodeURIComponent(name)}`, name, this.abort.signal), name, id);
   }
-  getScene(): SceneStructure[] { return [...this.entries].map(([id, entry]) => ({ id, metadata: structuredClone(entry.metadata), visible: entry.visible, macFile: entry.macFile, parts: entry.parts.map(p => ({ ...p.state })) })); }
+  duplicateStructure(id: string) {
+    const entry = this.entries.get(id); if (!entry) return Promise.reject(new Error('Structure is no longer open.'));
+    return this.loadFile(new File([entry.sourceText], `Copy of ${entry.metadata.fileName}`));
+  }
+  setSelectionMode(add: boolean) { this.addSelection = add; if (add) this.picking = 'residue'; }
+  private alignmentInput(request: AlignmentRequest) {
+    if (request.reference.structureId === request.mobile.structureId) throw new Error('Choose two structure instances. Duplicate the file to compare its chains without moving the reference.');
+    const get = (side: AlignmentRequest['reference']) => {
+      const entry = this.entries.get(side.structureId);
+      if (!entry?.structure.obj) throw new Error('An alignment structure is no longer open.');
+      const chain = extractAlignmentChains(entry.structure.obj.data).find(c => c.chainId === side.chainId);
+      if (!chain) throw new Error('Choose an available polymer chain.');
+      return chain;
+    };
+    return [get(request.reference), get(request.mobile)] as const;
+  }
+  previewAlignment(request: AlignmentRequest) { const [a,b] = this.alignmentInput(request); return fitChains(a,b,request); }
+  applyAlignment(request: AlignmentRequest) { return this.run(async () => {
+    const report = this.previewAlignment(request);
+    const entry = this.entries.get(request.mobile.structureId)!;
+    const previous = Mat4.clone(entry.matrix);
+    const next = Mat4.mul(Mat4(), Mat4.fromArray(Mat4(), report.matrix, 0), entry.matrix);
+    this.clearSelection();
+    await this.plugin.build().to(entry.structure).update({ transform: { name: 'matrix', params: { data: next, transpose: false } } }).commit();
+    entry.matrix = next; this.undo.push({ id: request.mobile.structureId, matrix: previous });
+    if (this.undo.length > 20) this.undo.shift();
+    this.lastAlignment = { request: structuredClone(request), report };
+    this.applyVisibility(request.mobile.structureId); this.resetCamera();
+    return report;
+  }); }
+  undoAlignment() { return this.run(async () => {
+    const last = this.undo.at(-1); if (!last) throw new Error('No alignment to undo.');
+    const entry = this.entries.get(last.id);
+    if (!entry) { this.undo.pop(); throw new Error('The moved structure was removed or reloaded.'); }
+    this.clearSelection();
+    await this.plugin.build().to(entry.structure).update({ transform: { name: 'matrix', params: { data: last.matrix, transpose: false } } }).commit();
+    entry.matrix = last.matrix; this.undo.pop(); this.lastAlignment = undefined; this.applyVisibility(last.id); this.resetCamera();
+  }); }
+  exportImage(transparent: boolean) { return this.run(async () => {
+    if (!this.entries.size) throw new Error('Open a structure before exporting.');
+    const helper = this.plugin.helpers.viewportScreenshot;
+    if (!helper) throw new Error('Image export is unavailable.');
+    const previous = helper.values;
+    let image: string;
+    try {
+      helper.behaviors.values.next({ ...previous, transparent, format: { name: 'png', params: {} }, resolution: { name: 'viewport', params: {} } });
+      image = await helper.getImageDataUri();
+    } finally { helper.behaviors.values.next(previous); }
+    const response = await fetch('/api/exports', { method: 'POST', headers: { 'Content-Type': 'application/json', 'X-Protein-Export': '1' }, body: JSON.stringify({ image, manifest: { version: 1, created: new Date().toISOString(), transparent, scene: this.getScene(), transforms: [...this.entries].map(([id,e]) => ({ id, matrix: Array.from(e.matrix) })), camera: this.plugin.canvas3d?.camera.getSnapshot(), alignment: this.lastAlignment } }), signal: this.abort.signal });
+    if (!response.ok) throw new Error('Could not save the image on the Mac. Check the export folder and server.');
+    return await response.json() as { name: string; url: string; metadataUrl: string };
+  }); }
+  getScene(): SceneStructure[] { return [...this.entries].map(([id, entry]) => ({ id, metadata: structuredClone(entry.metadata), visible: entry.visible, macFile: entry.macFile, alignmentChains: entry.structure.obj ? extractAlignmentChains(entry.structure.obj.data).map(c => ({ chainId: c.chainId, authChainId: c.authChainId, kind: c.kind, count: c.anchors.length })) : [], parts: entry.parts.map(p => ({ ...p.state })) })); }
   private applyVisibility(id: string) {
     const entry = this.entries.get(id); if (!entry) return;
     for (const part of entry.parts) setSubtreeVisibility(this.plugin.state.data, part.node.ref, !(entry.visible && part.state.visible));
@@ -110,7 +187,7 @@ export class ViewerController implements ProteinViewer {
   removeStructure(id: string) { return this.run(async () => {
     if (!this.entries.has(id)) return;
     if (this.selection.structureId === id) this.clearSelection();
-    await this.plugin.build().delete(id).commit(); this.entries.delete(id);
+    await this.plugin.build().delete(id).commit(); this.entries.delete(id); this.undo=this.undo.filter(u=>u.id!==id); this.lastAlignment=undefined;
     if (this.detailRef && !this.plugin.state.data.cells.has(this.detailRef)) this.detailRef = undefined;
   }); }
   focusStructure(id: string) { const entry = this.entries.get(id); if (entry?.structure.obj) this.plugin.managers.camera.focusSphere(entry.structure.obj.data.boundary.sphere, { durationMs: 250 }); }
@@ -118,11 +195,11 @@ export class ViewerController implements ProteinViewer {
     this.clearSelection();
     for (const [id, entry] of this.entries) {
       const proteinParts = entry.parts.filter(p => p.protein);
-      const colors = chainColors(palette, proteinParts.length);
+      const colors = chainColors(palette, Math.max(8, proteinParts.length));
       for (const part of entry.parts) {
         if (part.protein) {
           const index = proteinParts.indexOf(part);
-          part.color = colors[index]; part.state.color = '#' + part.color.toString(16).padStart(6, '0');
+          part.color = colors[(index + entry.colorOffset) % colors.length]; part.state.color = '#' + part.color.toString(16).padStart(6, '0');
         }
         const tree = this.plugin.build();
         this.plugin.state.data.tree.children.get(part.node.ref)?.forEach(ref => tree.delete(ref));

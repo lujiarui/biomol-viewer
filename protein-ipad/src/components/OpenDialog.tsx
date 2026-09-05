@@ -1,7 +1,8 @@
+import { examples } from '../viewer/examples';
 import { useEffect, useRef, useState } from 'react';
 interface LibraryFile { name: string; size: number; modified: number; }
-interface Props { busy: boolean; error?: string; onClose: () => void; onDevice: () => void; onRcsb: (id: string) => void; onMac: (name: string) => void; }
-export function OpenDialog({ busy, error, onClose, onDevice, onRcsb, onMac }: Props) {
+interface Props { busy: boolean; error?: string; onClose: () => void; onDevice: () => void; onRcsb: (id: string) => void; onMac: (name: string) => void; onExample: (id: string) => void; onPair: () => void; }
+export function OpenDialog({ busy, error, onClose, onDevice, onRcsb, onMac, onExample, onPair }: Props) {
   const dialog = useRef<HTMLDialogElement>(null);
   const [id, setId] = useState('');
   const [files, setFiles] = useState<LibraryFile[]>([]);
@@ -20,6 +21,7 @@ export function OpenDialog({ busy, error, onClose, onDevice, onRcsb, onMac }: Pr
     <form onSubmit={e => { e.preventDefault(); onRcsb(id); }}>
       <label htmlFor="pdb-id">From RCSB PDB</label><div className="input-row"><input id="pdb-id" value={id} onChange={e => setId(e.target.value)} placeholder="PDB ID, e.g. 4HHB" autoCapitalize="characters" autoCorrect="off" spellCheck={false} /><button className="primary-button" disabled={busy || !id.trim()}>Fetch</button></div>
     </form>
+    <section aria-label="Example gallery"><h3>Examples by scenario</h3><div className="example-grid">{examples.map(example=><button key={example.id} disabled={busy} onClick={()=>onExample(example.id)}><small>{example.scenario}</small><strong>{example.title} · {example.id}</strong><span>{example.note}</span></button>)}</div><button disabled={busy} onClick={onPair}>Load ubiquitin comparison pair</button></section>
     <section aria-label="Mac library"><div className="library-heading"><h3>Mac library</h3><button disabled={refreshing || busy} onClick={() => void refresh()}>Refresh</button></div>
       <p className="muted">Files saved in your Mac’s shared structure folder.</p>
       {libraryError && <p role="status">{libraryError}</p>}
