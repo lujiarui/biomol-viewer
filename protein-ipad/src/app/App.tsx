@@ -21,6 +21,7 @@ export function App() {
   const [openDialog, setOpenDialog] = useState(false);
   const [panel, setPanel] = useState(false);
   const [alignmentOpen,setAlignmentOpen]=useState(false), [exportOpen,setExportOpen]=useState(false);
+  const [holding,setHolding]=useState(false);
   const [additive,setAdditive]=useState(false);
   const [palette, setPalette] = useState<Palette>('vivid');
   const [mode, setMode] = useState<RepresentationMode>('cartoon');
@@ -39,19 +40,19 @@ export function App() {
     catch (error) { onError(error); }
     finally { refreshScene(); setState(s => ({ ...s, loading: false })); }
   }
-  const disabled = !ready || state.loading;
+  const disabled = !ready || state.loading || holding;
   const open = () => { setState(s => ({ ...s, error: undefined })); setOpenDialog(true); };
-  return <main className="app" aria-label="Protein viewer" data-ready={ready} data-loaded={scene.length > 0} aria-busy={state.loading}>
+  return <main className={`app${holding?' preview-held':''}`} aria-label="Protein viewer" data-ready={ready} data-loaded={scene.length > 0} aria-busy={state.loading}>
     <ViewerCanvas onReady={onReady} onError={onError} />
     <TopBar structure={state.structure} disabled={disabled} onOpen={open} onReset={() => viewer.current?.resetCamera()} onPanel={() => {setPanel(v => !v);setAlignmentOpen(false);}} count={scene.length} onAlign={()=>{setAlignmentOpen(v=>!v);setPanel(false);}} onExport={()=>setExportOpen(true)} />
     <input ref={picker} className="file-input" aria-label="Open structure file" type="file" accept=".pdb,.cif,.mmcif" disabled={disabled} onChange={e => { const file = e.currentTarget.files?.[0]; e.currentTarget.value = ''; if (file) void action(v => v.loadFile(file), true); }} />
     {!scene.length && !state.loading && <EmptyState disabled={disabled} onOpen={open} onExample={() => void action(v => v.loadExample())} />}
     {(state.loading || (!ready && !state.error)) && !openDialog && <div className="loading-status" role="status"><span className="spinner" />{state.loading ? 'Updating scene…' : 'Preparing viewer…'}</div>}
     {state.error && !openDialog && <div className="error-message" role="alert"><p>{state.error}</p><button aria-label="Dismiss error" onClick={() => setState(s => ({ ...s, error: undefined }))}>×</button></div>}
-    {state.selection.residues.length > 0 && <SelectionSheet selection={state.selection} disabled={state.loading} onClear={() => viewer.current?.clearSelection()} onFocus={() => viewer.current?.focusSelection()} onDetail={() => void action(v => v.showNeighborhood())} />}
+    {state.selection.residues.length > 0 && <SelectionSheet selection={state.selection} disabled={disabled} onClear={() => viewer.current?.clearSelection()} onFocus={() => viewer.current?.focusSelection()} onDetail={() => void action(v => v.showNeighborhood())} />}
     {scene.length > 0 && !state.selection.residues.length && <footer className="gesture-hint">Drag to rotate <span>·</span> Pinch to zoom <span>·</span> {additive ? 'Tap to add/remove residues' : `Tap a ${picking}`} </footer>}
-    {panel && <StructurePanel scene={scene} busy={disabled} palette={palette} mode={mode} picking={picking} onClose={() => setPanel(false)} onFocus={id => viewer.current?.focusStructure(id)} onDuplicate={id=>void action(v=>v.duplicateStructure(id))} onReload={id => void action(v => v.reloadMacStructure(id))} onRemove={id => void action(v => v.removeStructure(id))} onVisibility={(id, visible, partId) => { viewer.current?.setVisibility(id, visible, partId); refreshScene(); }} onPicking={p => { viewer.current?.setPicking(p); viewer.current?.setSelectionMode(false);setAdditive(false); setPicking(p); }} onStyle={(p, m) => void action(async v => { await v.setStyle(p, m); setPalette(p); setMode(m); })} />}
-    {<AlignmentPanel open={alignmentOpen} scene={scene} selection={state.selection} busy={disabled} additive={additive} onAdditive={value=>{viewer.current?.setSelectionMode(value);setAdditive(value);if(value)setPicking('residue');}} onClose={()=>setAlignmentOpen(false)} onPreview={request=>viewer.current!.previewAlignment(request)} onApply={request=>action(v=>v.applyAlignment(request))} onUndo={()=>action(v=>v.undoAlignment())} />}
+    {panel && <StructurePanel onPurge={()=>void action(async v=>{await v.purge();setAdditive(false);})} scene={scene} busy={disabled} palette={palette} mode={mode} picking={picking} onClose={() => setPanel(false)} onFocus={id => viewer.current?.focusStructure(id)} onDuplicate={id=>void action(v=>v.duplicateStructure(id))} onReload={id => void action(v => v.reloadMacStructure(id))} onRemove={id => void action(v => v.removeStructure(id))} onVisibility={(id, visible, partId) => { viewer.current?.setVisibility(id, visible, partId); refreshScene(); }} onPicking={p => { viewer.current?.setPicking(p); viewer.current?.setSelectionMode(false);setAdditive(false); setPicking(p); }} onStyle={(p, m) => void action(async v => { await v.setStyle(p, m); setPalette(p); setMode(m); })} />}
+    {<AlignmentPanel open={alignmentOpen} scene={scene} selection={state.selection} busy={!ready || state.loading} onHolding={setHolding} onHold={request=>viewer.current!.beginAlignmentPreview(request)} onRelease={()=>viewer.current!.endAlignmentPreview()} onQuick={()=>action(v=>v.quickAlign())} additive={additive} onAdditive={value=>{viewer.current?.setSelectionMode(value);setAdditive(value);if(value)setPicking('residue');}} onClose={()=>setAlignmentOpen(false)} onPreview={request=>viewer.current!.previewAlignment(request)} onApply={request=>action(v=>v.applyAlignment(request))} onUndo={()=>action(v=>v.undoAlignment())} />}
     {exportOpen && <ExportDialog busy={disabled} canSave={scene.length>0} onClose={()=>setExportOpen(false)} onExport={transparent=>action(v=>v.exportImage(transparent))}/>}
     {openDialog && <OpenDialog busy={disabled} error={state.error} onClose={() => setOpenDialog(false)} onDevice={() => picker.current?.click()} onMac={name => void action(v => v.loadMacFile(name), true)} onExample={id=>void action(v=>v.loadExample(id),true)} onPair={()=>void action(async v=>{await v.loadExample('1UBQ');await v.loadExample('1UBI');setAlignmentOpen(true);setPanel(false);},true)} onRcsb={id => void action(v => v.loadRcsb(id), true)} />}
   </main>;

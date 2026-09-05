@@ -96,3 +96,9 @@ a { color:#a0e3d3; }
 .top-bar { flex-wrap:wrap; } nav { flex-wrap:wrap; }
 @media(max-width:750px) { .alignment-panel { top:135px; } .top-bar { padding-top:12px; } nav { gap:5px; } .top-bar .structure-title { flex:1 1 100%; } .example-grid { grid-template-columns:1fr; } }
 nav { max-width:100%; flex:0 1 auto; }
+
+.preview-held .alignment-panel button:not(.hold-preview), .preview-held .alignment-panel input, .preview-held .alignment-panel select, .preview-held .top-bar, .preview-held .selection-sheet { pointer-events: none; }
+.preview-held .alignment-panel { background: rgba(20,34,43,.65); }
+.hold-preview[aria-pressed="true"] { background: #9edfd1; color: #12282c; }
+
+.preview-held .viewer-canvas { pointer-events: none; }

@@ -15,3 +15,7 @@ The user confirmed success on physical iPad and requested a v1.0.0 checkpoint. C
 ## 1.2 — comparison and Mac exports
 
 Seven bundled scenario/comparison examples, sequence-guided chain and independently captured region fits, previewed RMSD and complete residue pairs, applied world transforms with undo, distinct structure colors, and transparent PNG plus JSON export to the Mac. Numerical tests cover known rigid transforms, reflections, outliers, missing anchors, sequence gaps, discontinuous regions, insertion codes, invalid geometry, and real ubiquitin structures. Browser coverage checks applied transforms, undo, touch captures, actual rendered examples, PNG alpha, and cross-device export retrieval.
+
+## 1.3 — interactive and sequence-independent comparison
+
+Temporary translucent hold preview with restoration on release/cancel/blur; bounded coordinate-only matching with unequal lengths and gaps; automatic compatible-chain search and immediate fit for exactly two files; lower-gain damped pinch zoom; scene purge. Tests include randomized sequences, synthetic insertions, a real ubiquitin loop deletion, automatic selection against a decoy chain, quick undo, preview restoration, and clean reload after purge.

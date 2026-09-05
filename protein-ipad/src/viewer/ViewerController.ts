@@ -1,3 +1,5 @@
+import { PluginStateObject } from 'molstar/lib/mol-plugin-state/objects';
+import type { Camera } from 'molstar/lib/mol-canvas3d/camera';
 import type { PluginContext } from 'molstar/lib/mol-plugin/context';
 import { StructureElement, StructureProperties, Bond } from 'molstar/lib/mol-model/structure';
 import { MolScriptBuilder as MS } from 'molstar/lib/mol-script/language/builder';
@@ -16,6 +18,7 @@ import type { ProteinViewer, SelectionState, SceneStructure, Palette, Representa
 type Loaded = Awaited<ReturnType<typeof loadStructure>>;
 export class ViewerController implements ProteinViewer {
   private entries = new Map<string, Loaded & { visible: boolean; macFile?: string; matrix: Mat4 }>();
+  private preview?: { id: string; matrix: Mat4; camera?: Camera.Snapshot; restoreAlpha: (()=>void)[] };
   private addSelection = false;
   private colorSerial = 0;
   private undo: { id: string; matrix: Mat4 }[] = [];
@@ -34,7 +37,7 @@ export class ViewerController implements ProteinViewer {
   private constructor(private plugin: PluginContext, private observer: ResizeObserver) {
     plugin.managers.interactivity.setProps({ granularity: 'residue' });
     this.clickSubscription = plugin.behaviors.interaction.click.subscribe(event => {
-      if (this.disposed || this.pending || event.button !== ButtonsType.Flag.Primary) return;
+      if (this.disposed || this.pending || this.preview || event.button !== ButtonsType.Flag.Primary) return;
       const raw = Bond.isLoci(event.current.loci) ? Bond.toFirstStructureElementLoci(event.current.loci) : event.current.loci;
       const picked = residueFromLoci(raw);
       if (!picked) return;
@@ -84,6 +87,7 @@ export class ViewerController implements ProteinViewer {
   }
   private run<T>(work: () => Promise<T>): Promise<T> {
     if (this.disposed) return Promise.reject(new Error('Viewer is closed.'));
+    if (this.preview) return Promise.reject(new Error('Release the alignment preview first.'));
     if (this.pending) return Promise.reject(new Error('A structure is already loading or updating.'));
     const task = work(); this.pending = task;
     void task.then(() => { this.pending = undefined; }, () => { this.pending = undefined; });
@@ -137,7 +141,68 @@ export class ViewerController implements ProteinViewer {
     return [get(request.reference), get(request.mobile)] as const;
   }
   previewAlignment(request: AlignmentRequest) { const [a,b] = this.alignmentInput(request); return fitChains(a,b,request); }
-  applyAlignment(request: AlignmentRequest) { return this.run(async () => {
+  beginAlignmentPreview(request: AlignmentRequest) { return this.run(async()=>{
+    const report=this.previewAlignment(request), entry=this.entries.get(request.mobile.structureId)!;
+    const snapshot={id:request.mobile.structureId,matrix:Mat4.clone(entry.matrix),camera:this.plugin.canvas3d?.camera.getSnapshot(),restoreAlpha:[] as (()=>void)[]};
+    this.preview=snapshot;
+    try {
+      const next=Mat4.mul(Mat4(),Mat4.fromArray(Mat4(),report.matrix,0),entry.matrix);
+      await this.plugin.build().to(entry.structure).update({transform:{name:'matrix',params:{data:next,transpose:false}}}).commit();
+      for(const cell of this.plugin.state.data.cells.values()){
+        if(!PluginStateObject.Molecule.Structure.Representation3D.is(cell.obj))continue;
+        let ref=cell.transform.parent;
+        while(ref && ref!==request.mobile.structureId && ref!==request.reference.structureId){const parent=this.plugin.state.data.cells.get(ref)?.transform.parent;if(parent===ref)break;ref=parent || '';}
+        if(ref!==request.mobile.structureId && ref!==request.reference.structureId)continue;
+        const repr=cell.obj.data.repr,alpha=repr.state.alphaFactor;
+        snapshot.restoreAlpha.push(()=>repr.setState({alphaFactor:alpha}));repr.setState({alphaFactor:0.45});
+      }
+      this.plugin.canvas3d?.requestDraw();
+      this.plugin.managers.camera.focusSphere(this.entries.get(request.reference.structureId)!.structure.obj!.data.boundary.sphere,{durationMs:0});
+      return report;
+    } catch(error){await this.restorePreview();throw error;}
+  }); }
+  private async restorePreview(){
+    const snapshot=this.preview;if(!snapshot)return;
+    try {
+      const entry=this.entries.get(snapshot.id);
+      if(entry)await this.plugin.build().to(entry.structure).update({transform:{name:'matrix',params:{data:snapshot.matrix,transpose:false}}}).commit();
+    } finally {
+      snapshot.restoreAlpha.forEach(restore=>restore());
+      if(snapshot.camera)this.plugin.managers.camera.setSnapshot(snapshot.camera,0);
+      this.plugin.canvas3d?.requestDraw();this.preview=undefined;
+    }
+  }
+  async endAlignmentPreview(){
+    if(this.pending)await this.pending.catch(()=>{});
+    await this.restorePreview();
+  }
+  quickAlign(){return this.run(async()=>{
+    if(this.entries.size!==2)throw new Error('Quick align requires exactly two open files.');
+    const [reference,mobile]=[...this.entries];
+    const a=extractAlignmentChains(reference[1].structure.obj!.data),b=extractAlignmentChains(mobile[1].structure.obj!.data);
+    const candidates=a.flatMap(x=>b.filter(y=>y.kind===x.kind && x.anchors.length>=3 && y.anchors.length>=3).map(y=>[x,y] as const));
+    if(!candidates.length)throw new Error('No compatible polymer chain pair is available.');
+    if(candidates.length>32)throw new Error('More than 32 compatible chain pairs. Choose chains in Align to keep the search responsive.');
+    if(candidates.some(([x,y])=>x.anchors.length*y.anchors.length>500_000))throw new Error('A chain pair exceeds the coordinate search limit. Choose smaller regions in Align.');
+    let best:{request:AlignmentRequest;report:AlignmentReport;candidates:number}|undefined;
+    const scores:number[]=[];
+    // Yield between candidates so the iPad can paint its progress state.
+    for(const [x,y] of candidates){
+      await new Promise(resolve=>setTimeout(resolve,0));
+      const request:AlignmentRequest={reference:{structureId:reference[0],chainId:x.chainId},mobile:{structureId:mobile[0],chainId:y.chainId},pairing:'coordinates'};
+      try{const report=this.previewAlignment(request);scores.push(report.coordinateScore!);if(!best || report.coordinateScore!>best.report.coordinateScore!)best={request,report,candidates:candidates.length};}catch{/* Degenerate chains cannot define a rigid fit. */}
+    }
+    if(!best)throw new Error('No valid chain fit found. Choose chains or regions manually.');
+    best.report=await this.commitAlignment(best.request);
+    if(scores.filter(score=>best!.report.coordinateScore!-score<0.02).length>1)best.report.warnings.push('Several chain pairs have similar geometry scores; the first best-scoring pair was used. Inspect the match.');
+    return best;
+  });}
+  purge(){return this.run(async()=>{
+    this.clearSelection();const update=this.plugin.build();for(const id of this.entries.keys())update.delete(id);await update.commit();
+    this.entries.clear();this.undo=[];this.lastAlignment=undefined;this.detailRef=undefined;this.addSelection=false;this.colorSerial=0;this.resetCamera();
+  });}
+  applyAlignment(request: AlignmentRequest) { return this.run(()=>this.commitAlignment(request)); }
+  private async commitAlignment(request: AlignmentRequest) {
     const report = this.previewAlignment(request);
     const entry = this.entries.get(request.mobile.structureId)!;
     const previous = Mat4.clone(entry.matrix);
@@ -149,7 +214,7 @@ export class ViewerController implements ProteinViewer {
     this.lastAlignment = { request: structuredClone(request), report };
     this.applyVisibility(request.mobile.structureId); this.resetCamera();
     return report;
-  }); }
+  }
   undoAlignment() { return this.run(async () => {
     const last = this.undo.at(-1); if (!last) throw new Error('No alignment to undo.');
     const entry = this.entries.get(last.id);

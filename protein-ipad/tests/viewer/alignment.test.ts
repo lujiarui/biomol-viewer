@@ -63,3 +63,23 @@ test('gallery has actual homomer, heteromer, RNA, and DNA chain content',async()
   expect(extractAlignmentChains(await parsed('4HHB')).filter(c=>c.kind==='protein')).toHaveLength(4);
   for(const id of ['1URN','1TUP']){const c=extractAlignmentChains(await parsed(id));expect(c.some(x=>x.kind==='protein')).toBe(true);expect(c.some(x=>x.kind==='nucleic')).toBe(true);expect(c.filter(x=>x.kind==='nucleic').every(x=>x.anchors.some(a=>a.position))).toBe(true);}
 });
+
+describe('geometry-only alignment',()=>{
+  test('ignores randomized and unknown residue identities under a rigid transform',()=>{
+    const a=chain(),b=chain();b.anchors.forEach((x,i)=>{x.code=i%2?'X':'W';const [x0,y,z]=x.position!;x.position=[-y+42,x0-13,z+9];});
+    const r=fitChains(a,b,{...request,pairing:'coordinates'});expect(r.matched).toBe(6);expect(r.rmsd).toBeLessThan(1e-6);expect(r.coordinateScore).toBeCloseTo(1);expect(r.beforeRmsd).toBeGreaterThan(20);
+  });
+  test('finds an internal insertion without sequence information',()=>{
+    const a=chain(),b=chain();b.anchors.splice(3,0,{code:'X',residue:{chainId:'A',residueNumber:30,residueName:'UNK'},position:[80,90,100]});b.anchors.forEach(x=>{x.code='X';const [x0,y,z]=x.position!;x.position=[-y+42,x0-13,z+9];});
+    const r=fitChains(a,b,{...request,pairing:'coordinates'});expect(r.matched).toBe(6);expect(r.rmsd).toBeLessThan(1e-5);expect(r.pairs.some(p=>p.mobile.residueNumber===30)).toBe(false);
+  });
+  test('respects independent regions and rejects degenerate geometry',()=>{
+    const a=chain(),b=chain();const r=fitChains(a,b,{...request,pairing:'coordinates',reference:{...request.reference,range:'2-5'},mobile:{...request.mobile,range:'1-5'}});expect(r.matched).toBe(4);expect(r.rmsd).toBeLessThan(1e-5);
+    b.anchors.forEach((x,i)=>x.position=[i,0,0]);expect(()=>fitChains(a,b,{...request,pairing:'coordinates'})).toThrow(/non-collinear/);
+  });
+});
+test('geometry matches real backbone coordinates after randomizing sequence and deleting a loop',async()=>{
+ const a=extractAlignmentChains(await parsed('1UBQ'))[0],b=extractAlignmentChains(await parsed('1UBI'))[0];
+ b.anchors=b.anchors.filter((_,i)=>i<30||i>=35);b.anchors.forEach((x,i)=>{x.code=i%2?'X':'W';const [x0,y,z]=x.position!;x.position=[z+100,x0-50,y+30];});
+ const report=fitChains(a,b,{...request,pairing:'coordinates'});expect(report.matched).toBe(71);expect(report.rmsd).toBeLessThan(0.2);expect(report.coordinateScore).toBeGreaterThan(0.9);
+});

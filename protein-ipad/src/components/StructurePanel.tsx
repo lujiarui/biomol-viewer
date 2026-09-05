@@ -1,7 +1,7 @@
 import type { Palette, RepresentationMode, SceneStructure } from '../viewer/types';
 interface Props {
   scene: SceneStructure[]; busy: boolean; palette: Palette; mode: RepresentationMode; picking: 'residue' | 'atom';
-  onClose: () => void; onVisibility: (id: string, visible: boolean, partId?: string) => void;
+  onPurge: () => void; onClose: () => void; onVisibility: (id: string, visible: boolean, partId?: string) => void;
   onDuplicate: (id: string) => void; onReload: (id: string) => void; onRemove: (id: string) => void; onFocus: (id: string) => void;
   onStyle: (palette: Palette, mode: RepresentationMode) => void; onPicking: (mode: 'residue' | 'atom') => void;
 }
@@ -13,6 +13,7 @@ export function StructurePanel(p: Props) {
       <label>Representation<select value={p.mode} disabled={p.busy} onChange={e => p.onStyle(p.palette, e.target.value as RepresentationMode)}><option value="cartoon">Cartoon</option><option value="cartoon-sticks">Cartoon + sticks</option><option value="atoms">All atoms</option></select></label>
       <label>Tap selects<select value={p.picking} disabled={p.busy} onChange={e => p.onPicking(e.target.value as 'residue' | 'atom')}><option value="residue">Residue</option><option value="atom">Atom</option></select></label>
     </div>
+    <button disabled={p.busy || !p.scene.length} onClick={p.onPurge}>Purge all structures</button>
     {!p.scene.length && <p className="muted">Open structures to manage them here.</p>}
     {p.scene.map(entry => <article key={entry.id} className="scene-entry">
       <label className="check-row"><input type="checkbox" checked={entry.visible} disabled={p.busy} onChange={e => p.onVisibility(entry.id, e.target.checked)} /><strong>{entry.metadata.fileName}</strong></label>

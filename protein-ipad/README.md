@@ -1,4 +1,4 @@
-# Protein 1.2
+# Protein 1.3
 
 A touch-first protein and molecular structure viewer. React owns the interface; Mol* 5.11.0 owns parsing, molecular representations, picking, and the camera. The original iPad-tested release is tagged `v1.0.0`.
 
@@ -65,9 +65,13 @@ Nearby atoms is a geometric proximity view, not a hydrogen-bond or interaction c
 
 ## Superposition and RMSD
 
-Open two structures, then choose **Align**. Pick a fixed Reference chain and a Mobile chain, **Preview fit**, inspect the RMSD and residue pairs, then **Apply alignment**. The entire mobile file moves; **Undo last alignment** restores its previous pose.
+Open two structures, then choose **Align**. Pick a fixed Reference chain and a Mobile chain, **Preview fit** for numbers or **Hold to preview overlap** for a temporary translucent overlay, inspect the RMSD and residue pairs, then **Apply alignment**. The entire mobile file moves; **Undo last alignment** restores its previous pose.
 
 Whole-chain sequence correspondence is the default. Restrict either or both counterparts using author residue ranges, or enable **Tap to add/remove residues**, pick on the canvas, and capture each side with **Use current selection**. Captured regions persist while the panel is closed. Protein fits use Cα; nucleic-acid fits use C4′. Explicit sequence-order pairing supports custom equal-sized counterparts. See [alignment methods and limitations](docs/alignment.md).
+
+For sequence-independent matching, choose **Coordinates only**. It supports unequal lengths and gaps using a bounded geometric search. **Quick align two files** automatically chooses the best-scoring compatible chain pair and immediately applies the fit; it is enabled only with exactly two open entries. First file stays fixed, second file moves. Review coverage and pair correspondences, especially for repetitive structures.
+
+**Files → Purge all structures** clears the browser scene, selection, captured regions, and alignment history. Mac source files and saved exports remain on disk. Pinch zoom now uses lower gain with damping for finer control.
 
 ## Export to the Mac
 

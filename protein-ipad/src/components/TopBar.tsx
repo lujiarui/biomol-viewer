@@ -10,7 +10,7 @@ export function TopBar({ structure, disabled, onOpen, onReset, onPanel, count, o
     </div>
     <nav aria-label="Viewer controls">
       <button disabled={disabled || !structure} onClick={onAlign}>Align</button><button disabled={disabled} onClick={onExport}>Export</button>
-      <button onClick={onPanel} aria-label="Manage structures">Files <span>{count}</span></button>
+      <button disabled={disabled} onClick={onPanel} aria-label="Manage structures">Files <span>{count}</span></button>
       <button className="quiet-button" disabled={disabled || !structure} onClick={onReset} aria-label="Reset camera"><span aria-hidden="true">↺</span><span className="reset-label">Reset view</span></button>
       <button className="primary-button" disabled={disabled} onClick={onOpen}><span aria-hidden="true">＋</span> Open</button>
     </nav>

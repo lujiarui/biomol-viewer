@@ -16,6 +16,10 @@ export interface ProteinViewer {
   setSelectionMode(add: boolean): void;
   previewAlignment(request: AlignmentRequest): AlignmentReport;
   applyAlignment(request: AlignmentRequest): Promise<AlignmentReport>;
+  beginAlignmentPreview(request: AlignmentRequest): Promise<AlignmentReport>;
+  endAlignmentPreview(): Promise<void>;
+  quickAlign(): Promise<{request: AlignmentRequest; report: AlignmentReport; candidates: number}>;
+  purge(): Promise<void>;
   undoAlignment(): Promise<void>;
   exportImage(transparent: boolean): Promise<{ name: string; url: string; metadataUrl: string }>;
   getScene(): SceneStructure[];

@@ -25,3 +25,11 @@ Each loaded structure has a dedicated TransformStructureConformation node before
 `alignment.ts` extracts observed polymer sequences and representative atoms, resolves independent endpoint regions, maps sequence correspondences, and validates a rigid least-squares fit. React receives semantic chains and reports. Captured region slots live in the mounted AlignmentPanel; picking remains available when the panel is closed. Picked component loci are remapped onto the entry structure before multi-residue set operations.
 
 `server/exports.ts` provides bounded, same-origin PNG/JSON writes and read-only listings for both development and preview. Export uses Mol* viewportScreenshot with temporary transparency settings and restores those settings afterward. It saves only the molecular viewport, without React panels. The metadata records state and the latest fit, but does not contain source structure files or implement scene restoration.
+
+## Alignment extensions (1.3)
+
+`coordinateAlignment.ts` implements bounded geometry-only seeding and iterative local order-preserving correspondence; `alignment.ts` reuses the rigid solver for each correspondence. Quick mode evaluates compatible chain pairs and commits the selected fit within one serialized controller mutation. The geometry score is a custom coverage-aware ranking metric, not a TM-score.
+
+Hold preview snapshots the mobile matrix, camera, and representation alpha factors, updates the existing state node temporarily, and restores them on release. It does not modify the stored entry matrix, provenance, or undo stack. UI pointer capture plus keyboard/blur/cancellation handlers keep release reliable. Other scene mutations are blocked while previewing.
+
+Purge deletes all molecular data subtrees and clears selections/undo/provenance; configured filesystem directories are untouched. Trackball gesture gain is 0.25, zoom speed 4, staticMoving false, and damping factor 0.35, reducing pinch sensitivity and introducing gradual settling.

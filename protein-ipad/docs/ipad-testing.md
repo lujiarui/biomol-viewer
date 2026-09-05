@@ -58,3 +58,11 @@ The following are covered by automated Chromium/WebKit tests with real molecular
 - Duplicate a file when comparing two chains from that same source.
 - Export with transparency enabled. On the Mac, open the PNG from scene-exports or the Export panel, and inspect its accompanying JSON report.
 - Repeat portrait, landscape, Split View, and several align/undo cycles; confirm page refresh intentionally clears the browser scene while saved exports remain.
+
+## Version 1.3 physical iPad checks
+
+- Hold the overlap-preview button, then release. Repeat a short tap, dragging away, and switching apps during the hold. Original pose/opacity/camera must return; preview must not add undo entries.
+- Choose Coordinates only for two generated backbones with unrelated sequences, then compare a truncated or internally deleted counterpart. Inspect coverage and pairs.
+- Quick align with two files, verify chosen chains, then Undo. With one or three files it must be disabled.
+- Use small two-finger pinches at whole-structure and atom-level zoom. Check controllability and motion settling on the physical iPad; desktop/WebKit automation cannot validate the feel of a physical touch screen.
+- Purge all structures, verify the empty scene, then reopen a file. Check that source files and existing Mac exports remain available.

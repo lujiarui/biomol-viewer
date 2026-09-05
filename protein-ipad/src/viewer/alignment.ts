@@ -1,3 +1,4 @@
+import { coordinateFit } from './coordinateAlignment';
 import { align } from 'molstar/lib/mol-model/sequence/alignment/alignment';
 import { MinimizeRmsd } from 'molstar/lib/mol-math/linear-algebra/3d/minimize-rmsd';
 import { Vec3 } from 'molstar/lib/mol-math/linear-algebra';
@@ -7,10 +8,10 @@ export type PolymerKind = 'protein' | 'nucleic';
 export interface Anchor { residue: ResidueRef; code: string; position?: [number, number, number]; }
 export interface AlignmentChain { chainId: string; authChainId: string; kind: PolymerKind; anchors: Anchor[]; }
 export interface AlignmentEndpoint { structureId: string; chainId: string; residues?: ResidueRef[]; range?: string; }
-export interface AlignmentRequest { reference: AlignmentEndpoint; mobile: AlignmentEndpoint; pairing: 'sequence' | 'order'; }
+export interface AlignmentRequest { reference: AlignmentEndpoint; mobile: AlignmentEndpoint; pairing: 'sequence' | 'order' | 'coordinates'; }
 export interface AlignmentReport {
   rmsd: number; beforeRmsd: number; matched: number; identity: number; referenceCount: number; mobileCount: number;
-  missingAnchors: number; anchor: 'Cα' | 'C4′'; matrix: number[]; warnings: string[];
+  coordinateScore?: number; missingAnchors: number; anchor: 'Cα' | 'C4′'; matrix: number[]; warnings: string[];
   pairs: { reference: ResidueRef; mobile: ResidueRef; distance: number }[];
 }
 const amino: Record<string, string> = { ALA:'A', ARG:'R', ASN:'N', ASP:'D', CYS:'C', GLN:'Q', GLU:'E', GLY:'G', HIS:'H', ILE:'I', LEU:'L', LYS:'K', MET:'M', PHE:'F', PRO:'P', SER:'S', THR:'T', TRP:'W', TYR:'Y', VAL:'V', MSE:'M', SEC:'U', PYL:'O' };
@@ -86,6 +87,7 @@ function nonCollinear(points: Anchor[]) {
 export function fitChains(reference: AlignmentChain, mobile: AlignmentChain, request: AlignmentRequest): AlignmentReport {
   if (reference.kind !== mobile.kind) throw new Error('Protein and nucleic-acid anchors cannot be paired. Choose the same polymer type.');
   const selectedA = regionAnchors(reference, request.reference), selectedB = regionAnchors(mobile, request.mobile);
+  if (request.pairing === 'coordinates') return coordinateFit({...reference,anchors:selectedA}, {...mobile,anchors:selectedB}, (a,b)=>fitChains(a,b,{reference:{...request.reference,residues:undefined,range:undefined},mobile:{...request.mobile,residues:undefined,range:undefined},pairing:'order'}));
   const allowedA = new Set(selectedA), allowedB = new Set(selectedB);
   let pairs: [Anchor, Anchor][] = [];
   if (request.pairing === 'order') {
