@@ -32,7 +32,7 @@ test('disposal disconnects resize and events exactly once, then rejects new load
 test('unmount during parsing detaches immediately and defers plugin disposal until completion', async () => {
   const { plugin } = setup();
   const metadata = { fileName: 'x.cif', format: 'mmcif' as const, chains: [], atomCount: 1, residueCount: 1 };
-  let finish!: (value: { dataRef: string; metadata: typeof metadata }) => void;
+  let finish!: (value: Awaited<ReturnType<typeof loadStructure>>) => void;
   vi.mocked(loadStructure).mockReturnValue(new Promise(resolve => { finish = resolve; }));
   const viewer = await ViewerController.create({} as HTMLDivElement, new AbortController().signal);
   const pending = viewer.loadFile(new File(['data'], 'x.cif'));
@@ -41,7 +41,7 @@ test('unmount during parsing detaches immediately and defers plugin disposal unt
   viewer.dispose();
   expect(plugin.unmount).toHaveBeenCalledOnce();
   expect(plugin.dispose).not.toHaveBeenCalled();
-  finish({ dataRef: 'new-data', metadata });
+  finish({ dataRef: 'new-data', metadata } as unknown as Awaited<ReturnType<typeof loadStructure>>);
   await pending;
   expect(plugin.dispose).toHaveBeenCalledOnce();
   expect(plugin.managers.camera.reset).not.toHaveBeenCalled();

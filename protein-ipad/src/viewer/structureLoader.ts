@@ -1,7 +1,7 @@
 import type { PluginContext } from 'molstar/lib/mol-plugin/context';
 import { Structure, StructureElement, StructureProperties, Unit } from 'molstar/lib/mol-model/structure';
 import { addDefaultRepresentations } from './representations';
-import type { ChainSummary, StructureFormat, StructureMetadata } from './types';
+import type { ChainSummary, StructureFormat, StructureMetadata, Palette, RepresentationMode } from './types';
 
 export function detectFormat(fileName: string): StructureFormat {
   const extension = fileName.match(/\.([^.]+)$/)?.[1].toLowerCase();
@@ -35,7 +35,7 @@ export function extractMetadata(structure: Structure, fileName: string, format: 
 }
 
 /** Stage a new data subtree; caller deletes the old tree only after this succeeds. */
-export async function loadStructure(plugin: PluginContext, text: string, fileName: string, format: StructureFormat) {
+export async function loadStructure(plugin: PluginContext, text: string, fileName: string, format: StructureFormat, palette: Palette = 'vivid', mode: RepresentationMode = 'cartoon') {
   if (!text.trim()) throw new Error('This file is empty. Choose a PDB or mmCIF structure.');
   const data = await plugin.builders.data.rawData({ data: text, label: fileName });
   try {
@@ -45,8 +45,8 @@ export async function loadStructure(plugin: PluginContext, text: string, fileNam
     const structure = await plugin.builders.structure.createStructure(model, { name: 'model', params: {} });
     if (!structure.obj?.data.elementCount) throw new Error('No atoms found.');
     const metadata = extractMetadata(structure.obj.data, fileName, format);
-    await addDefaultRepresentations(plugin, structure);
-    return { dataRef: data.ref, metadata };
+    const parts = await addDefaultRepresentations(plugin, structure, metadata, palette, mode);
+    return { dataRef: data.ref, metadata, structure, parts };
   } catch (error) {
     await plugin.build().delete(data.ref).commit();
     throw new Error('Could not read this structure. Check that it contains valid PDB or mmCIF atom coordinates.', { cause: error });

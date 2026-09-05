@@ -21,6 +21,8 @@ export async function createViewer(host: HTMLDivElement, signal: AbortSignal) {
     signal.throwIfAborted();
     plugin.canvas3d!.setProps({
       renderer: { backgroundColor: Color(0x111820), selectColor: Color(0xffcf70) },
+      trackball: { minDistance: 0.5, autoAdjustMinMaxDistance: { name: 'off', params: {} } },
+      cameraClipping: { minNear: 0.1 },
       camera: { helper: { axes: { name: 'off', params: {} } } },
     });
     return plugin;
