@@ -40,4 +40,8 @@ Added quick-discussion, presentation, and publication scene presets that coordin
 
 ## 2.0 — Linked molecular analysis
 
-Added property-based and custom scalar color mapping, explicit residue annotations with ligand-contact suggestions, a sequence/secondary-structure/confidence track linked to 3D selection, and quick distance, angle, dihedral, RMSD, radius, and approximate interface-area measurements. Purge is visually distinguished as a destructive scene action.
+Added property-based and custom scalar color mapping, residue annotation overlays, a sequence/secondary-structure/confidence track linked to 3D selection, and quick distance, angle, dihedral, RMSD, radius, and approximate interface-area measurements. Purge is visually distinguished as a destructive scene action.
+
+## 2.1 — Shared sessions, automatic analysis and media
+
+Restored the original rendering default and replaced the earlier purpose labels with Studio and Publication quality presets that explicitly configure AO, shadows, depth cue, SMAA, transparency, and publication sharpening. Replaced the broken ligand-contact action with deposited-site, coordinate-pocket, and two-sided interface detectors. Added a zoomable sequence selection matrix, restorable local-network session URLs, real MP4/WebM 360° and flipbook recording, and synchronized fixed-reference candidate galleries.

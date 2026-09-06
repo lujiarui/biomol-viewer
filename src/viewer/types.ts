@@ -2,13 +2,18 @@ import type { AlignmentRequest, AlignmentReport, PolymerKind } from './alignment
 export type StructureFormat = 'pdb' | 'mmcif';
 export type Palette = 'vivid' | 'pastel' | 'accessible' | 'ocean' | 'sunset' | 'forest' | 'berry';
 export type RepresentationMode = 'cartoon' | 'cartoon-sticks' | 'backbone' | 'lines' | 'atoms' | 'spacefill' | 'surface';
-export type VisualPreset = 'discussion' | 'presentation' | 'publication';
+export type VisualPreset = 'default' | 'studio' | 'publication';
 export type ColorMapping = 'chain' | 'element' | 'aa-type' | 'secondary' | 'hydrophobicity' | 'charge' | 'confidence' | 'custom';
 export type AnnotationKind = 'pocket' | 'epitope' | 'paratope' | 'active-site' | 'custom';
 export interface StructureAnnotation { id: string; kind: AnnotationKind; name: string; color: string; residues: ResidueRef[]; }
 export interface SequenceResidue extends ResidueRef { code: string; secondary: 'helix' | 'sheet' | 'coil'; confidence?: number; annotations: { id: string; name: string; color: string }[]; }
 export interface SequenceChain { structureId: string; fileName: string; chainId: string; authChainId: string; residues: SequenceResidue[]; }
 export interface MeasurementResult { kind: 'distance' | 'angle' | 'dihedral' | 'rmsd' | 'radius' | 'interface-area'; value: number; unit: 'Å' | '°' | 'Å²'; detail: string; }
+export type AutoAnnotationMode = 'source-sites' | 'pocket-geometry' | 'interface-pair';
+export interface SavedFile { name:string; url:string; metadataUrl?:string; }
+export interface VideoOptions { mode:'rotation'|'flipbook'; axis:'x'|'y'|'z'; seconds:number; }
+export interface GalleryOptions { fixedStructureId?:string; fixedPartId?:string; candidateIds:string[]; columns:number; transparent:boolean; }
+export interface ViewerStyleState { palette:Palette;mode:RepresentationMode;preset:VisualPreset;colorMapping:ColorMapping;labels:boolean; }
 export interface ChainSummary { chainId: string; authChainId: string; residueCount: number; }
 export interface StructureMetadata { fileName: string; format: StructureFormat; chains: ChainSummary[]; residueCount: number; atomCount: number; }
 export interface ScenePart { id: string; label: string; visible: boolean; color?: string; }
@@ -28,7 +33,11 @@ export interface BiomolViewer {
   quickAlign(): Promise<{request: AlignmentRequest; report: AlignmentReport; candidates: number}>;
   purge(): Promise<void>;
   undoAlignment(): Promise<void>;
-  exportImage(transparent: boolean): Promise<{ name: string; url: string; metadataUrl: string }>;
+  exportImage(transparent: boolean): Promise<SavedFile>;
+  createSharedSession(): Promise<{id:string;url:string}>;
+  loadSharedSession(id:string): Promise<ViewerStyleState>;
+  recordVideo(options:VideoOptions):Promise<SavedFile>;
+  exportGallery(options:GalleryOptions):Promise<SavedFile>;
   getScene(): SceneStructure[];
   setVisibility(id: string, visible: boolean, partId?: string): void;
   removeStructure(id: string): Promise<void>;
@@ -38,7 +47,7 @@ export interface BiomolViewer {
   setChainLabels(visible: boolean): void;
   setColorMapping(mapping: ColorMapping, customScalar?: string): Promise<void>;
   addAnnotation(kind: AnnotationKind, name: string, color: string): Promise<StructureAnnotation>;
-  suggestLigandPocket(name: string, color: string): Promise<StructureAnnotation>;
+  autoAnnotate(mode:AutoAnnotationMode,structureId:string,chainA?:string,chainB?:string):Promise<StructureAnnotation[]>;
   removeAnnotation(structureId: string, annotationId: string): Promise<void>;
   getSequence(structureId: string, chainId: string): SequenceChain;
   selectSequenceResidue(structureId: string, residue: ResidueRef, additive?: boolean): void;

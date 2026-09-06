@@ -10,3 +10,4 @@ shared-structures/*
 !shared-structures/README.md
 
 scene-exports/
+shared-sessions/

@@ -1,20 +1,33 @@
-# Scene image export to the Mac
+# Sharing, video, and image export
 
-Choose **Export → Save PNG to Mac** on iPad. The default is a transparent background. Export uses Mol*'s image renderer at the viewport image resolution and includes molecular geometry, not the toolbar or other React panels. Turn transparency off to retain the viewer background.
+Open **Export** on iPad for four workflows. All saved files remain visible from the same panel on the Mac.
 
-Each save creates two new files:
+## Restorable session URL
 
-- `scene-<timestamp>-<uuid>.png`: rendered image with an alpha channel.
-- Matching `.json`: scene metadata, file names, visibility flags, world transforms, camera, transparency, and the latest applied alignment request, paired residues, distances, and RMSD.
+**Create session link** sends a snapshot to the Mac and returns a short `?session=<uuid>` URL using a local-network address. Opening it from another device on the same Wi-Fi loads the original PDB/mmCIF text, representation and color settings, visibility, rigid transforms, annotations, chain labels, and camera. The link is a saved snapshot rather than live collaborative editing; later changes require a new link.
 
-The default directory is `scene-exports/`. Use `BIOMOL_EXPORTS="/absolute/path/to/exports" npm run dev` (or npm start) to choose another directory. This is separate from the read-only Mac structure library. Restart the server after changing the environment variable.
+Snapshots are stored in `shared-sessions/`, or `BIOMOL_SESSIONS`, and contain source coordinates. IDs are random but there is no account or authentication layer, so share links only on the trusted local network for which the server is intended.
 
-The Mac can read the files directly in Finder. Alternatively, open the app on the Mac and choose **Export** to view the shared saved-image list; no structure needs to be loaded in that browser. PNG and JSON links can be opened/downloaded. The list shows the 100 most recent generated PNG filenames. Files remain on disk after page refresh or server restart; normal filesystem tools manage them.
+## Video
 
-The JSON is a provenance record, **not a reloadable 3D scene package**: source coordinates are not embedded, and no session importer is provided. Source filenames alone are not a guarantee that a subsequently modified disk file is the same input. Keep the original input files with an exported result when reproducibility matters.
+**360° scene overview** rotates the current camera through exactly one loop around X, Y, or Z over the selected duration. **Structure flipbook** keeps the camera fixed and cycles through all loaded structure instances twice, which is suitable for aligned predictions or trajectory-like candidates. Both modes restore the original camera and visibility afterward.
 
-The standalone Node server, development server, and production preview server support export. A plain static host cannot save files on the Mac. No cloud storage is involved.
+The app captures the Mol* WebGL canvas with `canvas.captureStream()` and records with `MediaRecorder`. It feature-detects MP4/H.264 first and WebM codecs second, because Safari and Chromium expose different encoders. The encoded file is written to `scene-exports/`. Browser support follows the MediaStream Recording API: https://developer.mozilla.org/en-US/docs/Web/API/MediaStream_Recording_API and https://webkit.org/blog/11353/mediarecorder-api/.
 
-Writes require a same-origin JSON request with the app's explicit export header. The server generates unique filenames and accepts only PNG-signature image payloads with bounded dimensions (up to 8192 per side), image size (20 MiB), and metadata (2 MiB). Arbitrary paths, overwriting existing exports, cross-origin writes, and non-image uploads are not supported. The shared server remains intended for a trusted local network; anyone able to reach it can read shared exports.
+## Candidate gallery
 
-Tests verify actual alpha-zero background pixels, nonempty molecular pixels, byte-for-byte persistence on the Mac, visibility in another browser session, and rejection of malformed/cross-origin writes and traversal paths.
+Gallery tiles all use the current camera. Choose an optional fixed structure and, optionally, one of its chain/components. Then check up to 12 moving candidate structures and choose one to four columns. Each tile renders the fixed component plus one candidate; choosing no fixed structure renders candidates alone. The result is one labeled PNG plus a JSON manifest recording camera, options, and scene state.
+
+Use aligned structures and set the desired receptor view before exporting. The gallery intentionally does not refit individual candidates, because per-tile fitting would remove the controlled camera variable.
+
+## Scene PNG
+
+**Save PNG to Mac** uses Mol*'s image renderer at viewport resolution. Transparent background is enabled by default. Every save creates `scene-<timestamp>-<uuid>.png` and a matching `.json` provenance report with camera, visibility, transforms, style, annotations, and the latest alignment. This JSON report is separate from the restorable session format and does not embed source coordinates.
+
+Set the output directory with:
+
+```sh
+BIOMOL_EXPORTS="/absolute/path/to/exports" npm start
+```
+
+The standalone server, Vite development server, and preview server support these APIs. A static host cannot save sessions or files on the Mac. Writes require same-origin requests and explicit Biomol headers. Payload size, filename, image signatures, dimensions, and paths are validated; clients cannot choose filesystem paths or overwrite existing output.

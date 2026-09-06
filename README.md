@@ -45,19 +45,21 @@ reloaded without rebuilding the app or reopening the scene.
   molecular component.
 - Color protein chains with seven previewed palettes and session-wide unique
   colors while rendering ligands, nucleic acids, glycans, ions, and water distinctly.
-- Switch among quick-discussion, presentation, and publication scene presets;
+- Keep the original default rendering or choose studio/publication quality presets
+  with explicit AO, shadow, depth cue, antialiasing, and transparency settings;
   optionally place compact file/chain labels directly over the structure view.
 - Map chain, element, amino-acid type, secondary structure, hydrophobicity,
   charge, confidence, or custom residue/atom scalar values to color.
-- Annotate pockets, epitopes, paratopes, active sites, or custom residue sets and
-  inspect them through a linked sequence/secondary-structure/confidence track.
+- Automatically detect deposited functional sites, coordinate-based pocket
+  candidates, or both sides of an epitope/paratope-style chain interface.
 - Measure distance, angle, dihedral, RMSD, radius, and approximate buried
   interface area from the touch selection workflow.
 - Select residues or atoms, focus at atomic scale, and show complete residues
   within 5 Å across all visible aligned structures.
 - Superpose chains or custom regions using sequence-based or coordinate-only
   correspondence, with RMSD, temporary overlap preview, apply, and undo.
-- Export transparent PNG images and matching scene metadata to the Mac.
+- Share a restorable scene by local-network URL, record 360° or flipbook video,
+  and export synchronized candidate galleries or transparent PNG images to the Mac.
 - Use a bundled gallery of typical protein, ligand, complex, RNA, and DNA
   examples without an internet connection.
 
@@ -162,8 +164,10 @@ For close inspection:
 3. Choose among **Cartoon**, **Cartoon + sticks**, **Backbone**, **Lines**,
    **Ball + stick**, **Space filling**, and **Molecular surface**. Use a style
    with atom geometry when the required atom is not visible in a cartoon.
-4. Choose **Quick discussion** for responsive live work, **Presentation** for
-   bolder lighting and depth, or **Publication** for fine ribbons and crisp outlines.
+4. Keep **Original default** for the prior Mol* look. Choose **Studio quality**
+   for AO, soft shadow, depth of field, SMAA, and depth-peeled transparency, or
+   **Publication quality** for higher-sample AO, restrained fog, sharpening,
+   outlines, SMAA, and depth-peeled transparency.
    Palette buttons preview their colors before applying them. **Show file and chain
    labels** adds small, camera-following labels and remains off by default.
 
@@ -205,6 +209,12 @@ Detailed behavior and numerical limits are documented in
 - **Export → Save PNG to Mac** writes a PNG with transparency enabled by default,
   plus a JSON report containing camera, visibility, transform, file-label, and
   latest-alignment data.
+- **Create session link** embeds source coordinates in a server-side session and
+  creates a short Wi-Fi URL that restores transforms, visibility, annotations,
+  style, and camera.
+- **Video** records a chosen-axis 360° loop or flips through all loaded structures.
+- **Candidate gallery** holds the current camera and an optional receptor
+  structure/chain constant while rendering selected candidate structures as tiles.
 
 Exports are saved in `scene-exports/`. To choose another directory:
 
@@ -212,18 +222,19 @@ Exports are saved in `scene-exports/`. To choose another directory:
 BIOMOL_EXPORTS="/Users/yourname/path/to/exports" npm start
 ```
 
-The JSON report records the scene but is not currently a reloadable scene file.
-See [Scene image export](docs/export.md) for details.
+See [Sharing, video, and image export](docs/export.md) for details.
 
 ## Privacy and network scope
 
-Device-local files are parsed in the browser and are not uploaded to the Mac or
-to RCSB. RCSB requests go directly from the browser to the official RCSB download
-service.
+Device-local files are parsed in the browser. Creating a session link explicitly
+copies the current coordinate text and scene state to `shared-sessions/` on the
+Mac; ordinary viewing does not. RCSB requests go directly from the browser to the
+official RCSB download service.
 
 The Mac library is read-only. It serves only PDB/mmCIF files inside the configured
 folder, skips hidden files and symlinks, and provides no delete or upload API.
-Scene export is a separate workflow that writes generated PNG/JSON pairs.
+Scene export writes generated PNG/JSON/video files. Session sharing writes
+unguessable-ID JSON snapshots that contain the source coordinates.
 
 The standalone server is intended for a trusted local network and does not
 provide authentication. Anyone who can reach it can read the files in the shared
@@ -306,3 +317,6 @@ presentation-ready scene presets, palette previews, session-wide unique chain
 colors, and optional file/chain labels.
 Version 2.0.0 adds the linked analysis workspace with property mapping,
 residue annotations, sequence tracks, and structural measurements.
+Version 2.1.0 adds automatic annotations, a zoomable selection matrix,
+restorable Wi-Fi session links, video recording, synchronized galleries, and
+revised professional rendering presets with the original default restored.

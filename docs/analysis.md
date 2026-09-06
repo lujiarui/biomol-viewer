@@ -17,19 +17,19 @@ A,43,CA,0.91
 
 Values are normalized over the supplied range and colored blue–cream–red. Missing values are gray. Author chain and residue numbering are used in the input. The mapping changes display only; coordinates and source files are unchanged.
 
-## Residue annotations
+## Automatic residue annotations
 
-Enable multi-residue picking, select residues on the canvas or linked sequence, choose a category, and press **Annotate selection**. Potential pocket, epitope, paratope, active-site, and custom are semantic labels; the app does not claim that a manual label is experimentally validated.
+**Deposited functional sites** reads explicit `_struct_site_gen` residue records from PDBx/mmCIF and creates one annotation per deposited site. It does not rename deposited sites as experimentally proven active sites.
 
-**Suggest ligand contacts** creates a reviewable potential-pocket annotation from visible protein residues with any atom within 4 Å of a visible ligand. This is a contact-shell convenience, not cavity detection or druggability scoring. Fpocket instead detects and clusters Voronoi alpha spheres and scores geometric and physicochemical pocket descriptors: https://pmc.ncbi.nlm.nih.gov/articles/PMC2700099/.
+**Geometry pocket candidate · Beta** uses coordinates alone. It scores amino-acid centroids by local enclosure across spatial octants, excludes deep central residues with a radial surface constraint, and annotates the highest bounded 12 Å cluster. This is a fast tablet heuristic, not druggability scoring. Fpocket uses the more established Voronoi alpha-sphere, clustering, and physicochemical-descriptor approach: https://pmc.ncbi.nlm.nih.gov/articles/PMC2700099/.
 
-Epitope and paratope definitions vary by dataset and method. IEDB represents discontinuous epitopes as explicit residue sets and requires experimental immune-recognition evidence for curated epitopes: https://tools.iedb.org/conservancy/help/ and https://discuss.iedb.org/t/epitopes/160. SAbDab identifies antibody–antigen candidates using CDR proximity and retains standardized CDR definitions: https://academic.oup.com/nar/article/42/D1/D1140/1044118. Biomol therefore keeps these categories manual and provenance-neutral instead of inferring them from distance alone.
+**Epitope / paratope interface** finds residues on both selected chains with any non-hydrogen atom pair within 5 Å. The user identifies which chain is the epitope side and which is the paratope side. Distance establishes a structural interface, not immune-recognition evidence. IEDB represents discontinuous epitopes as explicit residue sets and requires experimental evidence for curated epitopes: https://tools.iedb.org/conservancy/help/ and https://discuss.iedb.org/t/epitopes/160. SAbDab uses antibody/antigen and CDR context in addition to proximity: https://academic.oup.com/nar/article/42/D1/D1140/1044118.
 
 Annotations add a colored 3D ball-and-stick overlay, appear on the sequence track, and are recorded as residue lists in export JSON. Removing an annotation removes only that overlay and metadata.
 
 ## Sequence ↔ structure
 
-Choose a file and polymer chain. Every observed residue shows its one-letter code and author residue number. A lower glyph marks helix, sheet, or coil; the button fill shows confidence when available; a colored top edge marks an annotation. Tap a residue to select and highlight it in 3D. Shift-tap or enable multi-residue picking to build a region.
+Choose a file and polymer chain. Every observed residue shows its one-letter code and author residue number. A lower glyph marks helix, sheet, or coil; the button fill shows confidence when available; a colored top edge marks an annotation. The matrix reflows as its tile-zoom slider changes. Tap tiles in measurement order, tap again to remove, or enter the first and last author residue numbers to select a range.
 
 The sequence panel shows observed coordinate-bearing residues rather than filling unresolved sequence gaps. This keeps selection, annotation, and measurement identities exact.
 

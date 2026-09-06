@@ -56,7 +56,7 @@ test('protein visualization menu renders backbone, lines, space filling and surf
   await expect(page.getByRole('combobox', { name: '显示方式', exact: true }).locator('option:checked')).toHaveText('分子表面');
   expect(errors).toEqual([]);
 });
-test('presentation presets, palette previews, unique colors and optional chain labels', async ({ page }) => {
+test('professional presets, palette previews, unique colors and optional chain labels', async ({ page }) => {
   const errors: string[] = []; page.on('pageerror', error => errors.push(error.message));
   await page.goto('/');
   await page.getByLabel('Open structure file').setInputFiles('public/examples/example.cif');
@@ -72,12 +72,11 @@ test('presentation presets, palette previews, unique colors and optional chain l
   expect(new Set(colors).size).toBe(colors.length);
   const canvas = page.locator('canvas');
   const discussion = await canvas.screenshot();
-  await panel.getByLabel('Scene preset').selectOption('presentation');
-  await expect(page.getByRole('main')).toHaveAttribute('aria-busy', 'false');
+  const preset=panel.getByLabel('Scene preset');
+  await preset.selectOption('studio');await page.waitForTimeout(100);await expect(preset).toBeEnabled();
   const presentation = await canvas.screenshot();
   expect(presentation.equals(discussion)).toBe(false);
-  await panel.getByLabel('Scene preset').selectOption('publication');
-  await expect(page.getByRole('main')).toHaveAttribute('aria-busy', 'false');
+  await preset.selectOption('publication');await page.waitForTimeout(100);await expect(preset).toBeEnabled();
   await panel.getByRole('checkbox', { name: 'Show file and chain labels' }).check();
   await expect(page.locator('.chain-label')).toHaveCount(3);
   await expect(page.locator('.chain-label').first()).toContainText('example.cif');

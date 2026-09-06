@@ -10,7 +10,7 @@ import { cartoonParams } from './visualPresets';
 export type StructureNode = StateObjectSelector<PluginStateObject.Molecule.Structure>;
 export interface RenderPart { node: StructureNode; state: ScenePart; protein: boolean; color: number; }
 export { chainColors } from './palettes';
-export async function renderPart(plugin: PluginContext, part: RenderPart, mode: RepresentationMode, preset: VisualPreset = 'discussion', mapping: ColorMapping = 'chain') {
+export async function renderPart(plugin: PluginContext, part: RenderPart, mode: RepresentationMode, preset: VisualPreset = 'default', mapping: ColorMapping = 'chain') {
   const reps = plugin.builders.structure.representation;
   const mapped = mapping === 'element' ? 'element-symbol' : mapping === 'aa-type' ? 'residue-name' : mapping === 'secondary' ? 'secondary-structure' : mapping === 'hydrophobicity' ? 'hydrophobicity' : mapping === 'charge' ? 'residue-charge' : mapping === 'confidence' ? 'plddt-confidence' : mapping === 'custom' ? 'biomol-custom-scalar' : undefined;
   if (part.protein) {
@@ -40,7 +40,7 @@ export async function renderPart(plugin: PluginContext, part: RenderPart, mode: 
     await reps.addRepresentation(part.node, { type: ion ? 'spacefill' : glycan ? 'carbohydrate' : 'ball-and-stick', color: (mapped || (glycan ? 'carbohydrate-symbol' : 'element-symbol')) as never, colorParams: mapped || glycan ? {} : { carbonColor: { name: 'uniform', params: { value: Color(part.color) } } } });
   }
 }
-export async function addDefaultRepresentations(plugin: PluginContext, structure: StructureNode, metadata: StructureMetadata, palette: Palette = 'vivid', mode: RepresentationMode = 'cartoon', colorOffset = 0, preset: VisualPreset = 'discussion', mapping: ColorMapping = 'chain') {
+export async function addDefaultRepresentations(plugin: PluginContext, structure: StructureNode, metadata: StructureMetadata, palette: Palette = 'vivid', mode: RepresentationMode = 'cartoon', colorOffset = 0, preset: VisualPreset = 'default', mapping: ColorMapping = 'chain') {
   const parts: RenderPart[] = [];
 
   for (let i = 0; i < metadata.chains.length; i++) {

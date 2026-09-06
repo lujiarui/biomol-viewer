@@ -37,7 +37,7 @@ export function extractMetadata(structure: Structure, fileName: string, format: 
 }
 
 /** Stage a new data subtree; caller deletes the old tree only after this succeeds. */
-export async function loadStructure(plugin: PluginContext, text: string, fileName: string, format: StructureFormat, palette: Palette = 'vivid', mode: RepresentationMode = 'cartoon', colorOffset = 0, preset: VisualPreset = 'discussion', mapping: ColorMapping = 'chain') {
+export async function loadStructure(plugin: PluginContext, text: string, fileName: string, format: StructureFormat, palette: Palette = 'vivid', mode: RepresentationMode = 'cartoon', colorOffset = 0, preset: VisualPreset = 'default', mapping: ColorMapping = 'chain') {
   if (!text.trim()) throw new Error('This file is empty. Choose a PDB or mmCIF structure.');
   const data = await plugin.builders.data.rawData({ data: text, label: fileName });
   try {

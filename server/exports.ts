@@ -3,6 +3,7 @@ import { randomUUID } from 'node:crypto';
 import path from 'node:path';
 import type { Connect, Plugin } from 'vite';
 const namePattern = /^scene-[0-9T-]+-[a-f0-9-]+\.(png|json)$/;
+const videoPattern=/^video-[0-9T-]+-[a-f0-9-]+\.(mp4|webm)$/;
 export async function saveExport(root: string, image: unknown, manifest: unknown) {
   if (typeof image !== 'string' || !image.startsWith('data:image/png;base64,')) throw new Error('A PNG image is required.');
   const png = Buffer.from(image.slice('data:image/png;base64,'.length), 'base64');
@@ -22,10 +23,15 @@ export async function saveExport(root: string, image: unknown, manifest: unknown
 export function createExportsHandler(root = path.resolve(process.env.BIOMOL_EXPORTS || process.env.PROTEIN_EXPORTS || 'scene-exports')) {
   const handler: Connect.NextHandleFunction = (req,res,next) => {
     const url = new URL(req.url || '/', 'http://localhost');
-    if (!url.pathname.startsWith('/api/exports')) return next();
+    if (!url.pathname.startsWith('/api/exports')&&!url.pathname.startsWith('/api/videos')) return next();
     void (async () => {
       res.setHeader('Cache-Control','no-store'); res.setHeader('X-Content-Type-Options','nosniff');
-      if (req.method === 'POST' && url.pathname === '/api/exports') {
+      if(req.method==='POST'&&url.pathname==='/api/videos'){
+        if(req.headers.origin!==`http://${req.headers.host}`&&req.headers.origin!==`https://${req.headers.host}`){res.statusCode=403;res.end();return;}
+        if(req.headers['x-biomol-video']!=='1'){res.statusCode=415;res.end();return;}const type=req.headers['content-type']||'',ext=type.includes('mp4')?'mp4':type.includes('webm')?'webm':'';if(!ext){res.statusCode=415;res.end();return;}
+        let size=0;const chunks:Buffer[]=[];for await(const chunk of req){size+=chunk.length;if(size>200*1024*1024){res.statusCode=413;res.end();return;}chunks.push(Buffer.from(chunk));}if(size<100)throw Error('Empty video');
+        await mkdir(root,{recursive:true});const name=`video-${new Date().toISOString().replace(/[:.Z]/g,'-')}-${randomUUID()}.${ext}`;await writeFile(path.join(root,name),Buffer.concat(chunks),{flag:'wx'});res.setHeader('Content-Type','application/json');res.end(JSON.stringify({name,url:`/api/videos/file?name=${name}`}));
+      } else if (req.method === 'POST' && url.pathname === '/api/exports') {
         if (req.headers.origin !== `http://${req.headers.host}` && req.headers.origin !== `https://${req.headers.host}`) { res.statusCode=403; res.end(); return; }
         if ((req.headers['x-biomol-export'] !== '1' && req.headers['x-protein-export'] !== '1') || !req.headers['content-type']?.startsWith('application/json')) { res.statusCode=415; res.end(); return; }
         let size=0; const chunks: Buffer[]=[];
@@ -42,6 +48,10 @@ export function createExportsHandler(root = path.resolve(process.env.BIOMOL_EXPO
         if (!namePattern.test(name)) throw new Error('Invalid export name');
         const file=path.join(root,name); if (!(await lstat(file)).isFile()) throw new Error('Not a regular file');
         res.setHeader('Content-Type',name.endsWith('.png')?'image/png':'application/json'); res.end(await readFile(file));
+      } else if(req.method==='GET'&&url.pathname==='/api/videos'){
+        await mkdir(root,{recursive:true});const names=(await readdir(root,{withFileTypes:true})).filter(e=>e.isFile()&&videoPattern.test(e.name)).map(e=>e.name).sort().reverse().slice(0,50);res.setHeader('Content-Type','application/json');res.end(JSON.stringify({files:names.map(name=>({name,url:`/api/videos/file?name=${name}`}))}));
+      } else if(req.method==='GET'&&url.pathname==='/api/videos/file'){
+        const name=url.searchParams.get('name')||'';if(!videoPattern.test(name))throw Error('Invalid video name');const file=path.join(root,name);if(!(await lstat(file)).isFile())throw Error('Not a regular file');res.setHeader('Content-Type',name.endsWith('.mp4')?'video/mp4':'video/webm');res.end(await readFile(file));
       } else { res.statusCode=405; res.end(); }
     })().catch(()=>{ res.statusCode=400; res.setHeader('Content-Type','application/json'); res.end(JSON.stringify({error:'Export unavailable. Check image size and Mac output folder permissions.'})); });
   };

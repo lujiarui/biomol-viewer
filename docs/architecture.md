@@ -50,6 +50,12 @@ The root is the application workspace. Shared API handlers are exported from lib
 
 `customColorTheme.ts` registers one session-local Mol* theme for user scalar maps; built-in Mol* themes handle element, residue, secondary-structure, hydrophobicity, charge, and pLDDT coloring. Representation regeneration applies the selected theme without altering component visibility or chain color allocation.
 
-Annotations store semantic residue lists plus a state-tree component and colored overlay under the owning structure. The sequence view is derived from observed polymer anchors and enriches them with computed/deposited secondary structure, predicted-model confidence, and annotation membership. Sequence clicks create the same loci and `SelectionState` used by canvas picks.
+Annotations store semantic residue lists plus a state-tree component and colored overlay under the owning structure. Automatic detectors read mmCIF `struct_site_gen`, score bounded coordinate concavities, or calculate two-sided heavy-atom chain contacts. The zoomable sequence matrix is derived from observed polymer anchors and enriches them with computed/deposited secondary structure, predicted-model confidence, and annotation membership. Matrix clicks and range selection create the same ordered `SelectionState` used by canvas picks.
 
 `analysis.ts` contains anchor geometry and a bounded Shrake–Rupley-style buried-SASA estimate with a spatial grid. Selection measurements are synchronous and use transformed structure coordinates. Interface area is explicitly approximate and capped for tablet responsiveness.
+
+## Sharing and media export (2.1)
+
+`server/sessions.ts` accepts bounded same-origin snapshots, assigns random UUIDs, and serves them read-only. Snapshots embed source coordinate text plus style, visibility, transforms, annotations, and camera. The browser imports each source through the normal staged loader, then reapplies state; session IDs are deliberately different from transient Mol* state refs.
+
+Video export captures the Mol* canvas with `captureStream`, feature-detects MP4/WebM MediaRecorder encoders, animates camera snapshots or structure visibility, uploads the encoded blob, and restores the original camera and visibility in `finally`. Gallery export holds one camera snapshot, renders each fixed-structure/candidate visibility combination, composes bounded labeled tiles, and uses the existing PNG/JSON export boundary.

@@ -16,6 +16,7 @@ export function App() {
   const { language } = useI18n();
   const viewer = useRef<BiomolViewer | null>(null);
   const unsubscribeSelection = useRef<(() => void) | undefined>(undefined);
+  const restoredSession = useRef(false);
   useEffect(() => () => unsubscribeSelection.current?.(), []);
   const picker = useRef<HTMLInputElement>(null);
   const [ready, setReady] = useState(false);
@@ -32,7 +33,7 @@ export function App() {
   const [palette, setPalette] = useState<Palette>('vivid');
   const [colorMapping, setColorMapping] = useState<ColorMapping>('chain');
   const [mode, setMode] = useState<RepresentationMode>('cartoon');
-  const [visualPreset, setVisualPreset] = useState<VisualPreset>('discussion');
+  const [visualPreset, setVisualPreset] = useState<VisualPreset>('default');
   const [labelsVisible, setLabelsVisible] = useState(false);
   const [picking, setPicking] = useState<'residue' | 'atom'>('residue');
   const onError = useCallback((error: unknown) => setState(s => ({ ...s, error: errorMessage(error) })), []);
@@ -49,6 +50,7 @@ export function App() {
     catch (error) { onError(error); }
     finally { refreshScene(); setState(s => ({ ...s, loading: false })); }
   }
+  useEffect(()=>{const id=new URLSearchParams(location.search).get('session');if(ready&&id&&!restoredSession.current){restoredSession.current=true;void action(v=>v.loadSharedSession(id)).then(style=>{if(style){setPalette(style.palette);setMode(style.mode);setVisualPreset(style.preset);setColorMapping(style.colorMapping);setLabelsVisible(style.labels);}});}},[ready]);
   const disabled = !ready || state.loading || holding;
   const open = () => { setExamplesFirst(false); setState(s => ({ ...s, error: undefined })); setOpenDialog(true); };
   return localize(<main className={`app${holding?' preview-held':''}`} aria-label="Biomol viewer" data-ready={ready} data-loaded={scene.length > 0} aria-busy={state.loading}>
@@ -68,7 +70,11 @@ export function App() {
       onClose={()=>setAnalysisOpen(false)} onMutate={work=>action(work)} onRefresh={refreshScene}
     />}
     {<AlignmentPanel open={alignmentOpen} scene={scene} selection={state.selection} busy={!ready || state.loading} onHolding={setHolding} onHold={request=>viewer.current!.beginAlignmentPreview(request)} onRelease={()=>viewer.current!.endAlignmentPreview()} onQuick={()=>action(v=>v.quickAlign())} additive={additive} onAdditive={value=>{viewer.current?.setSelectionMode(value);setAdditive(value);if(value)setPicking('residue');}} onClose={()=>setAlignmentOpen(false)} onPreview={request=>viewer.current!.previewAlignment(request)} onApply={request=>action(v=>v.applyAlignment(request))} onUndo={()=>action(v=>v.undoAlignment())} />}
-    {exportOpen && <ExportDialog busy={disabled} canSave={scene.length>0} onClose={()=>setExportOpen(false)} onExport={transparent=>action(v=>v.exportImage(transparent))}/>}
+    {exportOpen && <ExportDialog
+      busy={disabled} canSave={scene.length>0} scene={scene} onClose={()=>setExportOpen(false)}
+      onExport={transparent=>action(v=>v.exportImage(transparent))} onShare={()=>action(v=>v.createSharedSession())}
+      onRecord={options=>action(v=>v.recordVideo(options))} onGallery={options=>action(v=>v.exportGallery(options))}
+    />}
     {openDialog && <OpenDialog examplesFirst={examplesFirst} busy={disabled} error={state.error} onClose={() => setOpenDialog(false)} onDevice={() => picker.current?.click()} onMac={name => void action(v => v.loadMacFile(name), true)} onExample={id=>void action(v=>v.loadExample(id),true)} onPair={()=>void action(async v=>{await v.loadExample('1UBQ');await v.loadExample('1UBI');setAlignmentOpen(true);setPanel(false);},true)} onRcsb={id => void action(v => v.loadRcsb(id), true)} />}
   </main>, language);
 }
