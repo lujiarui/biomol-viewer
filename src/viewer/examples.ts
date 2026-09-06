@@ -5,6 +5,7 @@ export const examples = [
   { id: '4HHB', title: 'Deoxyhemoglobin', scenario: 'Protein heteromer', note: 'Alpha and beta chains, with heme groups.' },
   { id: '1URN', title: 'U1A + RNA hairpin', scenario: 'Protein–RNA', note: 'RNA recognition by a U1A mutant RNA-binding domain.' },
   { id: '1TUP', title: 'p53 + DNA', scenario: 'Protein–DNA', note: 'A classic DNA-binding domain complex.' },
+  { id: '1MLC', title: 'D44.1 Fab + lysozyme', scenario: 'Antibody–antigen', note: 'A classic antibody interface with hen egg-white lysozyme at 2.5 Å resolution.' },
   { id: '1UBI', title: 'Synthetic ubiquitin', scenario: 'Superposition partner', note: 'Load alongside 1UBQ and align chain A to chain A.' },
 ] as const;
 export function examplePath(id: string) {

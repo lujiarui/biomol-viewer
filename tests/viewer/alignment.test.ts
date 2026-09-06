@@ -58,10 +58,11 @@ test('real ubiquitin pair uses 76 Cα correspondences and a plausible nonzero RM
   const a=extractAlignmentChains(await parsed('1UBQ'))[0],b=extractAlignmentChains(await parsed('1UBI'))[0];const r=fitChains(a,b,request);
   expect(r.matched).toBe(76);expect(r.identity).toBe(1);expect(r.rmsd).toBeGreaterThan(0.01);expect(r.rmsd).toBeLessThan(2);
 });
-test('gallery has actual homomer, heteromer, RNA, and DNA chain content',async()=>{
+test('gallery has actual homomer, heteromer, nucleic-acid, and antibody-antigen chain content',async()=>{
   expect(extractAlignmentChains(await parsed('1TIM')).filter(c=>c.kind==='protein').length).toBeGreaterThanOrEqual(2);
   expect(extractAlignmentChains(await parsed('4HHB')).filter(c=>c.kind==='protein')).toHaveLength(4);
   for(const id of ['1URN','1TUP']){const c=extractAlignmentChains(await parsed(id));expect(c.some(x=>x.kind==='protein')).toBe(true);expect(c.some(x=>x.kind==='nucleic')).toBe(true);expect(c.filter(x=>x.kind==='nucleic').every(x=>x.anchors.some(a=>a.position))).toBe(true);}
+  const antibodyAntigen=extractAlignmentChains(await parsed('1MLC')).filter(c=>c.kind==='protein');expect(antibodyAntigen.length).toBeGreaterThanOrEqual(3);expect(antibodyAntigen.some(c=>c.anchors.length<150)).toBe(true);expect(antibodyAntigen.filter(c=>c.anchors.length>200).length).toBeGreaterThanOrEqual(2);
 });
 
 describe('geometry-only alignment',()=>{

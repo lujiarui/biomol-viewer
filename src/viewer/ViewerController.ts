@@ -56,7 +56,7 @@ export class ViewerController implements BiomolViewer {
   private visualPreset: VisualPreset = 'default';
   private colorMapping: ColorMapping = 'chain';
   private customScalar?: ScalarRecord[];
-  private labelsVisible = false;
+  private labelsVisible = true;
   private labelLayer?: HTMLDivElement;
   private drawSubscription;
   private listeners = new Set<(selection: SelectionState) => void>();

@@ -133,7 +133,7 @@ The **+ Open** dialog provides four sources:
 - **RCSB PDB** accepts a four-character PDB ID such as `4HHB`, as well as an
   extended PDB ID. This option requires internet access.
 - **Examples by scenario** contains bundled monomer, protein-ligand,
-  homo/heteromer, protein-RNA, and protein-DNA structures.
+  homo/heteromer, protein-RNA, protein-DNA, and antibody-antigen structures.
 - **Mac library** reads files explicitly placed in the shared Mac folder.
 
 Opening another source adds it to the current scene. Files retain their original
@@ -169,7 +169,7 @@ For close inspection:
    **Publication quality** for higher-sample AO, restrained fog, sharpening,
    outlines, SMAA, and depth-peeled transparency.
    Palette buttons preview their colors before applying them. **Show file and chain
-   labels** adds small, camera-following labels and remains off by default.
+   labels** adds small, camera-following labels and is enabled by default.
 
 Nearby atoms is a geometric proximity view; it does not classify hydrogen bonds
 or other chemical interactions. **Clear selection** removes the temporary view.

@@ -35,7 +35,7 @@ export function App() {
   const [colorMapping, setColorMapping] = useState<ColorMapping>('chain');
   const [mode, setMode] = useState<RepresentationMode>('cartoon');
   const [visualPreset, setVisualPreset] = useState<VisualPreset>('default');
-  const [labelsVisible, setLabelsVisible] = useState(false);
+  const [labelsVisible, setLabelsVisible] = useState(true);
   const [picking, setPicking] = useState<'residue' | 'atom'>('residue');
   const onError = useCallback((error: unknown) => setState(s => ({ ...s, error: errorMessage(error) })), []);
   const onReady = useCallback((created: BiomolViewer) => {
@@ -55,7 +55,7 @@ export function App() {
   const disabled = !ready || state.loading || holding;
   const open = () => { setExamplesFirst(false); setState(s => ({ ...s, error: undefined })); setOpenDialog(true); };
   const setRangeMode = (value:boolean) => { viewer.current?.setRangeSelectionMode(value); setRangeSelecting(value); if(value){viewer.current?.setSelectionMode(false);setAdditive(false);setPicking('residue');} };
-  return localize(<main className={`app${holding?' preview-held':''}`} aria-label="Biomol viewer" data-ready={ready} data-loaded={scene.length > 0} aria-busy={state.loading}>
+  return localize(<main className={`app${holding?' preview-held':''}${panel?' files-panel-open':''}${alignmentOpen?' alignment-panel-open':''}${analysisOpen?' analysis-panel-open':''}`} aria-label="Biomol viewer" data-ready={ready} data-loaded={scene.length > 0} aria-busy={state.loading}>
     <ViewerCanvas onReady={onReady} onError={onError} />
     <TopBar structure={state.structure} disabled={disabled} onOpen={open} onReset={() => viewer.current?.resetCamera()} onPanel={() => {setRangeMode(false);setPanel(v => !v);setAlignmentOpen(false);setAnalysisOpen(false);}} count={scene.length} onAlign={()=>{setRangeMode(false);setAlignmentOpen(v=>!v);setPanel(false);setAnalysisOpen(false);}} onAnalysis={()=>{if(analysisOpen)setRangeMode(false);setAnalysisOpen(v=>!v);setPanel(false);setAlignmentOpen(false);}} onExport={()=>setExportOpen(true)} />
     <input ref={picker} className="file-input" aria-label="Open structure file" type="file" accept=".pdb,.cif,.mmcif" disabled={disabled} onChange={e => { const file = e.currentTarget.files?.[0]; e.currentTarget.value = ''; if (file) void action(v => v.loadFile(file), true); }} />

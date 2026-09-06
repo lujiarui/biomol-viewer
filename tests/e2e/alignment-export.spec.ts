@@ -1,7 +1,7 @@
 import { test, expect } from '@playwright/test';
 import { readFile, unlink } from 'node:fs/promises';
 import { examples } from '../../src/viewer/examples';
-test('scenario gallery renders bundled protein, ligand, homomer, heteromer, RNA and DNA examples',async({page})=>{
+test('scenario gallery renders bundled protein, ligand, complexes, nucleic acids, and antibody-antigen examples',async({page})=>{
   test.setTimeout(120_000);
   await page.route('https://**/*',route=>route.abort());
   await page.goto('/');

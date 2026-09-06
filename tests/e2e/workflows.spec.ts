@@ -13,6 +13,7 @@ test('RCSB complex, palettes, species controls and multiple files', async ({ pag
   await expect(page.getByRole('heading', { name: '4HHB.cif' })).toBeVisible();
   await page.getByRole('button', { name: 'Manage structures' }).click();
   const panel = page.getByRole('complementary', { name: 'Structures' });
+  await expect(panel.getByRole('checkbox', { name: 'Show file and chain labels' })).toBeChecked();
   await expect(panel.getByRole('checkbox', { name: /Protein · Chain/ })).toHaveCount(4);
   await expect(panel.getByRole('checkbox', { name: 'Ligands', exact: true })).toBeChecked();
   await expect(panel.getByRole('checkbox', { name: 'Water', exact: true })).not.toBeChecked();
@@ -56,7 +57,7 @@ test('protein visualization menu renders backbone, lines, space filling and surf
   await expect(page.getByRole('combobox', { name: '显示方式', exact: true }).locator('option:checked')).toHaveText('分子表面');
   expect(errors).toEqual([]);
 });
-test('professional presets, palette previews, unique colors and optional chain labels', async ({ page }) => {
+test('professional presets, palette previews, unique colors and default chain labels', async ({ page }) => {
   const errors: string[] = []; page.on('pageerror', error => errors.push(error.message));
   await page.goto('/');
   await page.getByLabel('Open structure file').setInputFiles('public/examples/example.cif');
@@ -77,11 +78,17 @@ test('professional presets, palette previews, unique colors and optional chain l
   const presentation = await canvas.screenshot();
   expect(presentation.equals(discussion)).toBe(false);
   await preset.selectOption('publication');await page.waitForTimeout(100);await expect(preset).toBeEnabled();
-  await panel.getByRole('checkbox', { name: 'Show file and chain labels' }).check();
   await expect(page.locator('.chain-label')).toHaveCount(3);
   await expect(page.locator('.chain-label').first()).toContainText('example.cif');
   await page.screenshot({ path: `test-results/publication-labels-${test.info().project.name}.png` });
   expect(errors).toEqual([]);
+});
+test('side panels avoid the residue card and keep their close control visible',async({page})=>{
+  await page.goto('/');await page.getByLabel('Open structure file').setInputFiles('public/examples/example.cif');const sheet=page.getByRole('region',{name:'Residue selection'});
+  for(const [x,y] of [[600,400],[550,400],[650,400],[600,350],[600,450],[550,350]]){await page.mouse.click(x,y);if(await sheet.isVisible())break;}await expect(sheet).toBeVisible();
+  const separated=async(panel:ReturnType<typeof page.locator>,side:'left'|'right')=>{const a=await panel.boundingBox(),b=await sheet.boundingBox();expect(a&&b).toBeTruthy();if(side==='right')expect(b!.x+b!.width).toBeLessThanOrEqual(a!.x);else expect(a!.x+a!.width).toBeLessThanOrEqual(b!.x);};
+  await page.getByRole('button',{name:'Manage structures'}).click();let side=page.getByRole('complementary',{name:'Structures'});await separated(side,'right');await side.evaluate(el=>el.scrollTop=el.scrollHeight);let close=side.getByRole('button',{name:'Close structures panel'}),panelBox=await side.boundingBox(),closeBox=await close.boundingBox();expect(closeBox!.y).toBeGreaterThanOrEqual(panelBox!.y);expect(closeBox!.y+closeBox!.height).toBeLessThanOrEqual(panelBox!.y+panelBox!.height);await close.click();
+  await page.getByRole('button',{name:'Align'}).click();side=page.getByRole('complementary',{name:'Superposition'});await separated(side,'left');await side.evaluate(el=>el.scrollTop=el.scrollHeight);close=side.getByRole('button',{name:'Close superposition'});panelBox=await side.boundingBox();closeBox=await close.boundingBox();expect(closeBox!.y).toBeGreaterThanOrEqual(panelBox!.y);expect(closeBox!.y+closeBox!.height).toBeLessThanOrEqual(panelBox!.y+panelBox!.height);
 });
 test('Mac folder files open over the local server and refresh finds new outputs', async ({ page, request }) => {
   const name = `test-${Date.now()}.cif`;

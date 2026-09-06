@@ -10,8 +10,9 @@ All examples are bundled as mmCIF files under public/examples, so choosing one d
 | Protein heteromer | [4HHB — deoxyhemoglobin](https://www.rcsb.org/structure/4HHB) | Alpha/beta chains and heme groups |
 | Protein–RNA | [1URN — U1A mutant/RNA complex](https://www.rcsb.org/structure/1URN) | RNA hairpin recognition |
 | Protein–DNA | [1TUP — p53/DNA](https://www.rcsb.org/structure/1TUP) | DNA binding by the p53 core domain |
+| Antibody–antigen | [1MLC — D44.1 Fab/lysozyme](https://www.rcsb.org/structure/1MLC) | Classic antibody interface with hen egg-white lysozyme at 2.5 Å resolution |
 | Alignment partner | [1UBI — synthetic ubiquitin](https://www.rcsb.org/structure/1UBI) | Compare with 1UBQ, chain A to chain A |
 
 **Load ubiquitin comparison pair** loads 1UBQ and 1UBI and opens the alignment panel. These entries already have similar coordinate frames; fitting reveals relatively small structural differences rather than a dramatic relocation. The older crambin Try Example shortcut remains available.
 
-Downloaded from the official https://files.rcsb.org/download/ID.cif service on 2026-09-05. Automated tests check the actual polymer content of the homomer, heteromer, RNA, and DNA examples and render every gallery entry in Chromium and WebKit.
+Downloaded from the official https://files.rcsb.org/download/ID.cif service on 2026-09-05 and 2026-09-06. Automated tests check the actual polymer content of the homomer, heteromer, RNA, DNA, and antibody–antigen examples and render every gallery entry in Chromium and WebKit.

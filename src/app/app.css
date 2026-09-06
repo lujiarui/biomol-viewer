@@ -35,6 +35,9 @@ button:disabled { opacity: .42; cursor: default; }
 @media (max-width: 600px) { .top-bar { padding-left: 16px; padding-right: 16px; gap: 10px; } .app-mark { display: none; } .reset-label { display: none; } nav { gap: 6px; } button { padding: 10px 12px; } h1 { font-size: 15px; } .structure-title p { font-size: 12px; } .gesture-hint { font-size: 12px; } .gesture-hint span { margin: 0 4px; } }
 @media (prefers-reduced-motion: reduce) { *, *::before, *::after { transition: none !important; animation-duration: 2s !important; } }
 .selection-sheet { position: absolute; bottom: max(20px, env(safe-area-inset-bottom)); left: 50%; transform: translateX(-50%); width: min(650px, calc(100% - 32px)); border: 1px solid #3a4d57; border-radius: 20px; background: #1c2934f5; box-shadow: 0 12px 40px #0004; padding: 20px 24px; display: flex; align-items: center; justify-content: space-between; gap: 16px; }
+.app.files-panel-open .selection-sheet { left:max(16px,env(safe-area-inset-left)); right:calc(382px + env(safe-area-inset-right)); width:auto; max-width:820px; transform:none; }
+.app.analysis-panel-open .selection-sheet { left:max(16px,env(safe-area-inset-left)); right:calc(472px + env(safe-area-inset-right)); width:auto; max-width:820px; transform:none; }
+.app.alignment-panel-open .selection-sheet { left:calc(412px + env(safe-area-inset-left)); right:max(16px,env(safe-area-inset-right)); width:auto; max-width:820px; transform:none; }
 .selection-sheet .eyebrow { margin: 0 0 9px; color: #ffcf70; font-size: 12px; letter-spacing: .1em; }
 .selection-sheet h2 { font-size: 20px; font-weight: 600; margin: 0; }
 .selection-sheet h2 span { color: #a9bac7; font-weight: 400; }
@@ -45,6 +48,8 @@ button:disabled { opacity: .42; cursor: default; }
 .open-dialog { width: min(600px, calc(100% - 24px)); max-height: calc(100dvh - 32px); overflow: auto; background: #1c2934; color: #edf2f7; border: 1px solid #4a606c; border-radius: 20px; padding: 24px; }
 .open-dialog::backdrop { background: #060b12bb; }
 .open-dialog header, .structure-panel header, .library-heading { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.open-dialog > header { position:sticky; top:-24px; z-index:10; margin:-24px -24px 16px; padding:24px 24px 12px; background:linear-gradient(#1c2934 80%,#1c293400); }
+.open-dialog > header > button { width:44px; height:44px; flex:0 0 44px; padding:0; font-size:22px; }
 .open-dialog h2, .structure-panel h2 { font-size: 20px; margin: 0; }
 .open-dialog form { margin-top: 24px; }
 .open-dialog label { display: block; margin-bottom: 8px; }
@@ -57,6 +62,8 @@ input:not([type=checkbox]), select { color: #edf2f7; background: #111d27; border
 .library-list button { width: 100%; text-align: left; margin-bottom: 6px; overflow-wrap: anywhere; }
 .library-list small { display: block; color: #a8bac8; font-size: 12px; margin-top: 5px; }
 .structure-panel { position: absolute; top: 95px; right: 16px; bottom: 20px; width: min(350px, calc(100% - 32px)); background: #1c2934fa; border: 1px solid #4a606c; border-radius: 18px; padding: 18px; overflow: auto; box-shadow: 0 16px 40px #0005; }
+.structure-panel > header,.alignment-panel > header,.analysis-panel > header { position:sticky; top:-18px; z-index:10; margin:-18px -18px 12px; padding:18px 18px 12px; background:linear-gradient(#1c2934 80%,#1c293400); }
+.structure-panel > header > button,.alignment-panel > header > button,.analysis-panel > header > button { width:44px; height:44px; flex:0 0 44px; padding:0; font-size:22px; }
 .style-controls { display: grid; gap: 12px; margin: 20px 0; }
 .style-controls label { display: grid; gap: 6px; font-size: 14px; }
 .palette-field { margin: 0; padding: 0; border: 0; }
@@ -80,7 +87,7 @@ input:not([type=checkbox]), select { color: #edf2f7; background: #111d27; border
 .selection-sheet { width: min(820px, calc(100% - 32px)); flex-wrap: wrap; }
 .selection-actions { display: flex; gap: 8px; flex-wrap: wrap; }
 .selection-detail { overflow-wrap: anywhere; }
-@media (max-width: 600px) { .top-bar { flex-wrap: wrap; } .structure-title { max-width: 100%; } nav { margin-left: auto; } .structure-panel { top: 175px; } .open-dialog { padding: 16px; } }
+@media (max-width: 600px) { .top-bar { flex-wrap: wrap; } .structure-title { max-width: 100%; } nav { margin-left: auto; } .structure-panel { top: 175px; } .open-dialog { padding: 16px; } .open-dialog > header { top:-16px; margin:-16px -16px 12px; padding:16px 16px 10px; } }
 .example-grid { display:grid; grid-template-columns:1fr 1fr; gap:8px; margin:12px 0; }
 .example-grid button { text-align:left; display:grid; gap:7px; padding:14px; }
 .example-grid small { color:#a0e3d3; font-size:12px; }
