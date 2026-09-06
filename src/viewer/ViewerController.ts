@@ -23,6 +23,7 @@ import { parseScalarMapping, setScalarMapping, type ScalarRecord } from './custo
 import { geometryPocketResidues, interfaceArea, interfaceResidues, measurePoints, selectedAnchorPoints, sequenceResidues, sourceDefinedSites } from './analysis';
 import { MolScriptBuilder as MS } from 'molstar/lib/mol-script/language/builder';
 import { Color } from 'molstar/lib/mol-util/color';
+import { randomId } from './randomId';
 type Loaded = Awaited<ReturnType<typeof loadStructure>>;
 type AnnotationEntry = { state: StructureAnnotation; node: Loaded['structure'] };
 interface SessionSnapshot { version:1; style:{palette:Palette;mode:RepresentationMode;preset:VisualPreset;colorMapping:ColorMapping;customScalar?:ScalarRecord[];labels:boolean}; camera?:Camera.Snapshot; structures:{name:string;sourceText:string;matrix:number[];visible:boolean;parts:{id:string;visible:boolean}[];annotations:StructureAnnotation[]}[]; }
@@ -343,7 +344,7 @@ export class ViewerController implements BiomolViewer {
     const entry=this.entries.get(entryId);if(!entry?.structure.obj||StructureElement.Loci.isEmpty(loci))throw new Error('Select one or more residues in a structure first.');
     if(!/^#[0-9a-f]{6}$/i.test(color))throw new Error('Choose a six-digit annotation color.');
     const node=await this.plugin.builders.structure.tryCreateComponentFromExpression(entry.structure,StructureElement.Loci.toExpression(loci),`annotation-${kind}`);if(!node)throw new Error('Could not create this annotation.');
-    const id=crypto.randomUUID(),state:StructureAnnotation={id,kind,name:name.trim()||kind,color,residues:[]};
+    const id=randomId(),state:StructureAnnotation={id,kind,name:name.trim()||kind,color,residues:[]};
     const seen=new Set<string>();StructureElement.Loci.forEachLocation(loci,location=>{const insertion=StructureProperties.residue.pdbx_PDB_ins_code(location),label=StructureProperties.residue.label_seq_id(location),auth=StructureProperties.residue.auth_seq_id(location);const residue:ResidueRef={modelId:String(location.unit.model.modelNum),chainId:StructureProperties.chain.label_asym_id(location),authChainId:StructureProperties.chain.auth_asym_id(location),residueNumber:label||auth,authResidueNumber:auth,residueName:StructureProperties.residue.label_comp_id(location),...(insertion&&insertion!=='.'&&insertion!=='?'?{insertionCode:insertion}:{})};const k=residueKey(residue);if(!seen.has(k)){seen.add(k);state.residues.push(residue);}});
     await this.plugin.builders.structure.representation.addRepresentation(node,{type:'ball-and-stick',color:'uniform',colorParams:{value:Color(Number.parseInt(color.slice(1),16))},typeParams:{sizeFactor:0.28}});
     entry.annotations.push({state,node});this.applyVisibility(entryId);return structuredClone(state);

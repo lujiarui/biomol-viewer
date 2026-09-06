@@ -19,3 +19,5 @@ test('property colors, linked sequence, annotations and measurements work togeth
 });
 
 test('purge is visually marked as destructive',async({page})=>{await page.goto('/');await page.getByLabel('Open structure file').setInputFiles('public/examples/example.cif');await page.getByRole('button',{name:'Manage structures'}).click();await expect(page.getByRole('button',{name:'Purge all structures'})).toHaveClass(/danger-button/);});
+
+test('automatic annotation works when Safari local HTTP omits crypto.randomUUID',async({page})=>{await page.addInitScript(()=>{Object.defineProperty(Crypto.prototype,'randomUUID',{configurable:true,value:undefined});});await page.goto('/');await page.getByLabel('Open structure file').setInputFiles('public/examples/4HHB.cif');await page.getByRole('button',{name:'Analyze'}).click();const panel=page.getByRole('complementary',{name:'Structure analysis'});await panel.getByRole('button',{name:'Detect and annotate'}).click();await expect(panel.getByText(/Deposited site ·/).first()).toBeVisible();});
