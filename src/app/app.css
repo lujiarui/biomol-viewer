@@ -135,6 +135,12 @@ nav { max-width:100%; flex:0 1 auto; }
 .range-drag-button[aria-pressed="true"] { color:#10272b; background:#a0e3d3; border-color:#d9fff6; box-shadow:0 0 0 2px #a0e3d344; }
 .range-drag-help { margin:6px 0 2px; color:#b8f3e5; font-size:11px; }
 .range-selecting canvas { cursor:crosshair; touch-action:none; }
+.residue-drag-guide { position:absolute; inset:0; z-index:4; overflow:hidden; pointer-events:none; }
+.residue-drag-guide[hidden] { display:none; }
+.residue-drag-arrow { position:absolute; height:3px; transform-origin:0 50%; border-radius:2px; background:linear-gradient(90deg,#fff7,#ffcf70); box-shadow:0 0 8px #000,0 0 12px #ffcf7066; }
+.residue-drag-arrow::after { content:''; position:absolute; right:-2px; top:50%; width:10px; height:10px; border-top:3px solid #ffcf70; border-right:3px solid #ffcf70; transform:translateY(-50%) rotate(45deg); }
+.residue-drag-label { position:absolute; max-width:180px; padding:4px 7px; border:1px solid #ffdf91; border-radius:7px; background:#14212aee; color:#fff8dc; box-shadow:0 2px 10px #0009; font-size:11px; font-weight:650; white-space:nowrap; }
+.residue-drag-label.start { transform:translate(-10%,-135%); }.residue-drag-label.target { transform:translate(-50%,55%); }
 .range-select { display:grid; grid-template-columns:1fr 1fr auto auto; gap:6px; align-items:center; }
 .range-select input { min-width:0; }
 .two-fields { display:grid; grid-template-columns:1fr 1fr; gap:8px; }

@@ -14,7 +14,7 @@ import type { AlignmentRequest, AlignmentReport } from './alignment';
 import { examplePath } from './examples';
 import { createViewer } from './createViewer';
 import { detectFormat, loadStructure } from './structureLoader';
-import { residueFromLoci, residueRange } from './selection';
+import { residueFromLoci } from './selection';
 import { chainColors, renderPart } from './representations';
 import { colorHex } from './palettes';
 import { applyVisualPreset } from './visualPresets';
@@ -36,9 +36,13 @@ export class ViewerController implements BiomolViewer {
   private preview?: { id: string; matrix: Mat4; camera?: Camera.Snapshot; restoreAlpha: (()=>void)[] };
   private addSelection = false;
   private rangeSelection = false;
-  private rangeDrag?: { start?: ReturnType<ViewerController['pickResidueNear']>; origin: Vec2; moved: boolean };
+  private rangeDrag?: { start?: ReturnType<ViewerController['pickResidueNear']>; end?: ReturnType<ViewerController['pickResidueNear']>; origin: Vec2; moved: boolean; lastPick: number };
   private rangePointer?: number;
   private rangeCanvas?: HTMLCanvasElement;
+  private dragGuide?: HTMLDivElement;
+  private dragGuideLine?: HTMLDivElement;
+  private dragGuideStart?: HTMLSpanElement;
+  private dragGuideTarget?: HTMLSpanElement;
   private rotateBinding?: Binding;
   private colorSerial = 0;
   private undo: { id: string; matrix: Mat4 }[] = [];
@@ -66,6 +70,11 @@ export class ViewerController implements BiomolViewer {
       this.labelLayer.className = 'chain-label-layer';
       this.labelLayer.setAttribute('aria-hidden', 'true');
       host.appendChild(this.labelLayer);
+      this.dragGuide = document.createElement('div'); this.dragGuide.className = 'residue-drag-guide'; this.dragGuide.setAttribute('aria-hidden','true');
+      this.dragGuideLine = document.createElement('div'); this.dragGuideLine.className = 'residue-drag-arrow';
+      this.dragGuideStart = document.createElement('span'); this.dragGuideStart.className = 'residue-drag-label start';
+      this.dragGuideTarget = document.createElement('span'); this.dragGuideTarget.className = 'residue-drag-label target';
+      this.dragGuide.append(this.dragGuideLine,this.dragGuideStart,this.dragGuideTarget);host.appendChild(this.dragGuide);
     }
     this.drawSubscription = plugin.canvas3d?.didDraw.subscribe(() => this.updateChainLabels());
     this.rotateBinding = plugin.canvas3d?.attribs.trackball.bindings.dragRotate;
@@ -175,6 +184,7 @@ export class ViewerController implements BiomolViewer {
   setSelectionMode(add: boolean) { this.addSelection = add; if (add) this.picking = 'residue'; }
   setRangeSelectionMode(enabled: boolean) {
     this.rangeSelection = enabled; this.rangeDrag = undefined; this.rangePointer = undefined;
+    if (!enabled) { this.hideDragGuide(); this.plugin.managers.interactivity.lociHighlights.clearHighlights(); }
     if (enabled) { this.addSelection = false; this.picking = 'residue'; }
     const canvas = this.plugin.canvas3d;
     this.host.classList.toggle('range-selecting', enabled);
@@ -185,27 +195,42 @@ export class ViewerController implements BiomolViewer {
     const rect = this.rangeCanvas!.getBoundingClientRect();
     return Vec2.create(event.clientX - rect.left, event.clientY - rect.top);
   }
+  private residueLabel(picked: NonNullable<ReturnType<ViewerController['pickResidueAt']>>) {
+    const residue=picked.residue,chain=residue.authChainId||residue.chainId;
+    return `${chain} · ${residue.residueName} ${residue.authResidueNumber??residue.residueNumber}${residue.insertionCode||''}`;
+  }
+  private updateDragGuide(start: Vec2, end: Vec2, target?: NonNullable<ReturnType<ViewerController['pickResidueAt']>>) {
+    if(!this.dragGuide||!this.dragGuideLine||!this.dragGuideStart||!this.dragGuideTarget)return;
+    const canvasRect=this.rangeCanvas!.getBoundingClientRect(),hostRect=this.host.getBoundingClientRect(),ox=canvasRect.left-hostRect.left,oy=canvasRect.top-hostRect.top;
+    const x1=start[0]+ox,y1=start[1]+oy,x2=end[0]+ox,y2=end[1]+oy,dx=x2-x1,dy=y2-y1;
+    this.dragGuide.hidden=false;this.dragGuideLine.style.left=`${x1}px`;this.dragGuideLine.style.top=`${y1}px`;this.dragGuideLine.style.width=`${Math.hypot(dx,dy)}px`;this.dragGuideLine.style.transform=`rotate(${Math.atan2(dy,dx)}rad)`;
+    this.dragGuideStart.style.left=`${x1}px`;this.dragGuideStart.style.top=`${y1}px`;this.dragGuideTarget.style.left=`${x2}px`;this.dragGuideTarget.style.top=`${y2}px`;this.dragGuideTarget.textContent=target?this.residueLabel(target):'◎';
+  }
+  private hideDragGuide(){if(this.dragGuide)this.dragGuide.hidden=true;}
   private onRangePointerDown = (event: PointerEvent) => {
     if (!this.rangeSelection || !event.isPrimary || this.disposed || this.pending || this.preview) return;
     const point = this.pointerPoint(event); this.rangePointer = event.pointerId;
     try { this.rangeCanvas?.setPointerCapture?.(event.pointerId); } catch { /* Synthetic and older Safari pointers may not support capture. */ }
-    const picked = this.pickResidueNear(point); this.rangeDrag = { start: picked, origin: point, moved: false };
-    if (picked) this.plugin.managers.interactivity.lociHighlights.highlightOnly({ loci: picked.loci }, false);
+    const picked = this.pickResidueNear(point); this.rangeDrag = { start: picked, end: picked, origin: point, moved: false, lastPick: event.timeStamp };
+    if (picked) { this.plugin.managers.interactivity.lociHighlights.highlightOnly({ loci: picked.loci }, false); if(this.dragGuideStart)this.dragGuideStart.textContent=this.residueLabel(picked);this.updateDragGuide(point,point,picked); }
   };
   private onRangePointerMove = (event: PointerEvent) => {
     if (!this.rangeSelection || event.pointerId !== this.rangePointer || !this.rangeDrag) return;
     const point = this.pointerPoint(event);
     if (Vec2.distance(point, this.rangeDrag.origin) >= 8) this.rangeDrag.moved = true;
+    let target=this.rangeDrag.end;
+    if(event.timeStamp-this.rangeDrag.lastPick>=70){this.rangeDrag.lastPick=event.timeStamp;target=this.pickResidueNear(point);if(target){this.rangeDrag.end=target;this.plugin.managers.interactivity.lociHighlights.highlightOnly({loci:target.loci},false);}}
+    if(this.rangeDrag.start)this.updateDragGuide(this.rangeDrag.origin,point,target);
   };
   private onRangePointerUp = (event: PointerEvent) => {
     if (event.pointerId !== this.rangePointer || !this.rangeDrag) return;
     const drag = this.rangeDrag, end = this.pickResidueNear(this.pointerPoint(event));
     this.rangeDrag = undefined; this.rangePointer = undefined;
-    this.plugin.managers.interactivity.lociHighlights.clearHighlights();
-    if (drag.moved && drag.start && end) this.selectDraggedRange(drag.start, end);
+    this.plugin.managers.interactivity.lociHighlights.clearHighlights();this.hideDragGuide();
+    if (drag.moved && drag.start && end) this.selectDraggedPair(drag.start, end);
   };
   private onRangePointerCancel = (event: PointerEvent) => {
-    if (event.pointerId === this.rangePointer) { this.rangeDrag = undefined; this.rangePointer = undefined; this.plugin.managers.interactivity.lociHighlights.clearHighlights(); }
+    if (event.pointerId === this.rangePointer) { this.rangeDrag = undefined; this.rangePointer = undefined; this.plugin.managers.interactivity.lociHighlights.clearHighlights();this.hideDragGuide(); }
   };
   private pickResidueAt(point: Vec2) {
     const canvas = this.plugin.canvas3d, pick = canvas?.identify(point);
@@ -221,11 +246,11 @@ export class ViewerController implements BiomolViewer {
     const offsets = [[0,0],[-9,0],[9,0],[0,-9],[0,9],[-7,-7],[7,-7],[-7,7],[7,7],[-18,0],[18,0],[0,-18],[0,18]];
     for (const [x,y] of offsets) { const picked = this.pickResidueAt(Vec2.create(point[0]+x,point[1]+y)); if (picked) return picked; }
   }
-  private selectDraggedRange(first: NonNullable<ReturnType<ViewerController['pickResidueAt']>>, last: NonNullable<ReturnType<ViewerController['pickResidueAt']>>) {
-    if (first.structureId !== last.structureId || first.residue.chainId !== last.residue.chainId) return;
+  private selectDraggedPair(first: NonNullable<ReturnType<ViewerController['pickResidueAt']>>, last: NonNullable<ReturnType<ViewerController['pickResidueAt']>>) {
+    if (first.structureId !== last.structureId || residueKey(first.residue)===residueKey(last.residue)) return;
     const entry = this.entries.get(first.structureId);
     if (!entry?.structure.obj) return;
-    const residues = residueRange(sequenceResidues(entry.structure.obj.data, [], first.residue.chainId), first.residue, last.residue);
+    const residues = [first.residue,last.residue];
     const loci = this.lociForResidues(first.structureId, residues);
     if (!residues.length || !loci || StructureElement.Loci.isEmpty(loci)) return;
     this.clearSelection(); this.selectedLoci = loci;
@@ -497,7 +522,7 @@ export class ViewerController implements BiomolViewer {
     if (this.disposed) return; this.disposed = true; this.abort.abort();
     this.observer.disconnect(); this.clickSubscription.unsubscribe(); this.drawSubscription?.unsubscribe();
     this.rangeCanvas?.removeEventListener('pointerdown',this.onRangePointerDown);this.rangeCanvas?.removeEventListener('pointermove',this.onRangePointerMove);this.rangeCanvas?.removeEventListener('pointerup',this.onRangePointerUp);this.rangeCanvas?.removeEventListener('pointercancel',this.onRangePointerCancel);
-    this.labelLayer?.remove(); this.listeners.clear();
+    this.labelLayer?.remove();this.dragGuide?.remove(); this.listeners.clear();
     this.plugin.unmount(); this.plugin.animationLoop.stop();
     if (this.pending) void this.pending.then(() => this.plugin.dispose(), () => this.plugin.dispose()); else this.plugin.dispose();
   }
