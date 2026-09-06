@@ -37,3 +37,7 @@ Added backbone, line, space-filling, and translucent molecular-surface protein r
 ## 1.7 — Presentation-ready styling
 
 Added quick-discussion, presentation, and publication scene presets that coordinate cartoon geometry, lighting, depth, and outlines. Seven chain palettes now show inline color previews. A stable session-wide chain index prevents color reuse across open files, including after removal or reload. Optional compact labels track visible chain centers and identify the source file and chain without intercepting canvas gestures or appearing in exported molecular images.
+
+## 2.0 — Linked molecular analysis
+
+Added property-based and custom scalar color mapping, explicit residue annotations with ligand-contact suggestions, a sequence/secondary-structure/confidence track linked to 3D selection, and quick distance, angle, dihedral, RMSD, radius, and approximate interface-area measurements. Purge is visually distinguished as a destructive scene action.

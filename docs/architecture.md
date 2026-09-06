@@ -45,3 +45,11 @@ The React i18n context stores language preference locally. Each UI component tra
 The root is the application workspace. Shared API handlers are exported from library.ts/exports.ts and reused by Vite and the standalone Node HTTP server. `npm run build` bundles the server into dist/server.mjs with esbuild; it has only Node built-in imports. The runtime serves allowlisted static asset types within dist, rejects traversal/symlinks leaving that root, and retains the existing API validation. `npm start` therefore does not require node_modules.
 
 `npm run compact` builds first and removes the local dependency install plus disposable reports/caches. `npm ci` restores the development environment from the lockfile. Source examples, test fixtures, library inputs, saved exports, and Git history are preserved.
+
+## Linked analysis workspace (2.0)
+
+`customColorTheme.ts` registers one session-local Mol* theme for user scalar maps; built-in Mol* themes handle element, residue, secondary-structure, hydrophobicity, charge, and pLDDT coloring. Representation regeneration applies the selected theme without altering component visibility or chain color allocation.
+
+Annotations store semantic residue lists plus a state-tree component and colored overlay under the owning structure. The sequence view is derived from observed polymer anchors and enriches them with computed/deposited secondary structure, predicted-model confidence, and annotation membership. Sequence clicks create the same loci and `SelectionState` used by canvas picks.
+
+`analysis.ts` contains anchor geometry and a bounded Shrake–Rupley-style buried-SASA estimate with a spatial grid. Selection measurements are synchronous and use transformed structure coordinates. Interface area is explicitly approximate and capped for tablet responsiveness.

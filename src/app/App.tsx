@@ -8,7 +8,8 @@ import { AlignmentPanel } from '../components/AlignmentPanel';
 import { ExportDialog } from '../components/ExportDialog';
 import { OpenDialog } from '../components/OpenDialog';
 import { StructurePanel } from '../components/StructurePanel';
-import type { BiomolViewer, SceneStructure, Palette, RepresentationMode, VisualPreset } from '../viewer/types';
+import { AnalysisPanel } from '../components/AnalysisPanel';
+import type { BiomolViewer, ColorMapping, SceneStructure, Palette, RepresentationMode, VisualPreset } from '../viewer/types';
 import { errorMessage, initialState } from '../state/viewerState';
 import './app.css';
 export function App() {
@@ -23,11 +24,13 @@ export function App() {
   const [examplesFirst,setExamplesFirst]=useState(false);
   const [openDialog, setOpenDialog] = useState(false);
   const [panel, setPanel] = useState(false);
+  const [analysisOpen,setAnalysisOpen]=useState(false);
   const [alignmentOpen,setAlignmentOpen]=useState(false), [exportOpen,setExportOpen]=useState(false);
   const [canUndoView,setCanUndoView]=useState(false);
   const [holding,setHolding]=useState(false);
   const [additive,setAdditive]=useState(false);
   const [palette, setPalette] = useState<Palette>('vivid');
+  const [colorMapping, setColorMapping] = useState<ColorMapping>('chain');
   const [mode, setMode] = useState<RepresentationMode>('cartoon');
   const [visualPreset, setVisualPreset] = useState<VisualPreset>('discussion');
   const [labelsVisible, setLabelsVisible] = useState(false);
@@ -50,7 +53,7 @@ export function App() {
   const open = () => { setExamplesFirst(false); setState(s => ({ ...s, error: undefined })); setOpenDialog(true); };
   return localize(<main className={`app${holding?' preview-held':''}`} aria-label="Biomol viewer" data-ready={ready} data-loaded={scene.length > 0} aria-busy={state.loading}>
     <ViewerCanvas onReady={onReady} onError={onError} />
-    <TopBar structure={state.structure} disabled={disabled} onOpen={open} onReset={() => viewer.current?.resetCamera()} onPanel={() => {setPanel(v => !v);setAlignmentOpen(false);}} count={scene.length} onAlign={()=>{setAlignmentOpen(v=>!v);setPanel(false);}} onExport={()=>setExportOpen(true)} />
+    <TopBar structure={state.structure} disabled={disabled} onOpen={open} onReset={() => viewer.current?.resetCamera()} onPanel={() => {setPanel(v => !v);setAlignmentOpen(false);setAnalysisOpen(false);}} count={scene.length} onAlign={()=>{setAlignmentOpen(v=>!v);setPanel(false);setAnalysisOpen(false);}} onAnalysis={()=>{setAnalysisOpen(v=>!v);setPanel(false);setAlignmentOpen(false);}} onExport={()=>setExportOpen(true)} />
     <input ref={picker} className="file-input" aria-label="Open structure file" type="file" accept=".pdb,.cif,.mmcif" disabled={disabled} onChange={e => { const file = e.currentTarget.files?.[0]; e.currentTarget.value = ''; if (file) void action(v => v.loadFile(file), true); }} />
     {!scene.length && !state.loading && <EmptyState disabled={disabled} onOpen={open} onExample={()=>{open();setExamplesFirst(true);}} />}
     {(state.loading || (!ready && !state.error)) && !openDialog && <div className="loading-status" role="status"><span className="spinner" />{state.loading ? 'Updating scene…' : 'Preparing viewer…'}</div>}
@@ -58,6 +61,12 @@ export function App() {
     {state.selection.residues.length > 0 && <SelectionSheet selection={state.selection} disabled={disabled} onClear={() => viewer.current?.clearSelection()} onFocus={() => viewer.current?.focusSelection()} onDetail={() => void action(v => v.showNeighborhood())} />}
     {scene.length > 0 && !state.selection.residues.length && <footer className="gesture-hint">Drag to rotate <span>·</span> Pinch to zoom <span>·</span> {additive ? 'Tap to add/remove residues' : `Tap a ${picking}`} </footer>}
     {panel && <StructurePanel canUndoView={canUndoView} onAutoView={()=>void action(async v=>{await v.autoView();setCanUndoView(true);})} onUndoView={()=>{viewer.current?.undoView();setCanUndoView(false);}} onPurge={()=>void action(async v=>{await v.purge();setCanUndoView(false);setAdditive(false);})} scene={scene} busy={disabled} palette={palette} mode={mode} visualPreset={visualPreset} labelsVisible={labelsVisible} picking={picking} onClose={() => setPanel(false)} onFocus={id => viewer.current?.focusStructure(id)} onDuplicate={id=>void action(v=>v.duplicateStructure(id))} onReload={id => void action(v => v.reloadMacStructure(id))} onRemove={id => void action(v => v.removeStructure(id))} onVisibility={(id, visible, partId) => { viewer.current?.setVisibility(id, visible, partId); refreshScene(); }} onPicking={p => { viewer.current?.setPicking(p); viewer.current?.setSelectionMode(false);setAdditive(false); setPicking(p); }} onStyle={(p, m) => void action(async v => { await v.setStyle(p, m); setPalette(p); setMode(m); })} onVisualPreset={preset => void action(async v => { await v.setVisualPreset(preset); setVisualPreset(preset); })} onLabels={visible => { viewer.current?.setChainLabels(visible); setLabelsVisible(visible); }} />}
+    {analysisOpen&&viewer.current&&<AnalysisPanel
+      viewer={viewer.current} scene={scene} selection={state.selection} busy={disabled}
+      additive={additive} colorMapping={colorMapping} onColorMapping={setColorMapping}
+      onAdditive={value=>{viewer.current?.setSelectionMode(value);setAdditive(value);if(value)setPicking('residue');}}
+      onClose={()=>setAnalysisOpen(false)} onMutate={work=>action(work)} onRefresh={refreshScene}
+    />}
     {<AlignmentPanel open={alignmentOpen} scene={scene} selection={state.selection} busy={!ready || state.loading} onHolding={setHolding} onHold={request=>viewer.current!.beginAlignmentPreview(request)} onRelease={()=>viewer.current!.endAlignmentPreview()} onQuick={()=>action(v=>v.quickAlign())} additive={additive} onAdditive={value=>{viewer.current?.setSelectionMode(value);setAdditive(value);if(value)setPicking('residue');}} onClose={()=>setAlignmentOpen(false)} onPreview={request=>viewer.current!.previewAlignment(request)} onApply={request=>action(v=>v.applyAlignment(request))} onUndo={()=>action(v=>v.undoAlignment())} />}
     {exportOpen && <ExportDialog busy={disabled} canSave={scene.length>0} onClose={()=>setExportOpen(false)} onExport={transparent=>action(v=>v.exportImage(transparent))}/>}
     {openDialog && <OpenDialog examplesFirst={examplesFirst} busy={disabled} error={state.error} onClose={() => setOpenDialog(false)} onDevice={() => picker.current?.click()} onMac={name => void action(v => v.loadMacFile(name), true)} onExample={id=>void action(v=>v.loadExample(id),true)} onPair={()=>void action(async v=>{await v.loadExample('1UBQ');await v.loadExample('1UBI');setAlignmentOpen(true);setPanel(false);},true)} onRcsb={id => void action(v => v.loadRcsb(id), true)} />}

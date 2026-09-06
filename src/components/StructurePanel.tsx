@@ -22,7 +22,7 @@ export function StructurePanel(p: Props) {
     </div>
     <div className="entry-actions"><button disabled={p.busy || !p.scene.length} onClick={p.onAutoView} aria-label="Automatically orient visible structures">Auto view · Beta</button><button disabled={p.busy || !p.canUndoView} onClick={p.onUndoView}>Undo view</button></div>
     <p className="muted">Find a view with less projected overlap. Visible components only.</p>
-    <button disabled={p.busy || !p.scene.length} onClick={p.onPurge}>Purge all structures</button>
+    <button className="danger-button purge-button" disabled={p.busy || !p.scene.length} onClick={p.onPurge}>Purge all structures</button>
     {!p.scene.length && <p className="muted">Open structures to manage them here.</p>}
     {p.scene.map(entry => <article key={entry.id} className="scene-entry">
       <label className="check-row"><input type="checkbox" checked={entry.visible} disabled={p.busy} onChange={e => p.onVisibility(entry.id, e.target.checked)} /><strong>{entry.metadata.fileName}</strong></label>

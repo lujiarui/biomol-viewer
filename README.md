@@ -7,7 +7,7 @@ The Mac generates, stores, and serves PDB/mmCIF files; the iPad provides the
 touch-first viewer in Safari. It uses neither screen mirroring nor an extended
 display.
 
-The current release is **1.7.0**. It supports English and Simplified Chinese.
+The current release is **2.0.0**. It supports English and Simplified Chinese.
 
 **Start here:** [run the first session](#first-session-on-mac-and-ipad) ·
 [share a structure folder](#share-structures-from-the-mac) ·
@@ -47,6 +47,12 @@ reloaded without rebuilding the app or reopening the scene.
   colors while rendering ligands, nucleic acids, glycans, ions, and water distinctly.
 - Switch among quick-discussion, presentation, and publication scene presets;
   optionally place compact file/chain labels directly over the structure view.
+- Map chain, element, amino-acid type, secondary structure, hydrophobicity,
+  charge, confidence, or custom residue/atom scalar values to color.
+- Annotate pockets, epitopes, paratopes, active sites, or custom residue sets and
+  inspect them through a linked sequence/secondary-structure/confidence track.
+- Measure distance, angle, dihedral, RMSD, radius, and approximate buried
+  interface area from the touch selection workflow.
 - Select residues or atoms, focus at atomic scale, and show complete residues
   within 5 Å across all visible aligned structures.
 - Superpose chains or custom regions using sequence-based or coordinate-only
@@ -286,6 +292,7 @@ Biomol Viewer is available under the [MIT License](LICENSE).
 - [Bundled examples and provenance](docs/examples.md)
 - [Superposition and RMSD](docs/alignment.md)
 - [Language and view controls](docs/view-and-language.md)
+- [Coloring, annotations, sequence linkage, and measurements](docs/analysis.md)
 - [Scene image export](docs/export.md)
 - [Architecture](docs/architecture.md)
 - [Physical iPad release checklist](docs/ipad-testing.md)
@@ -297,3 +304,5 @@ runtime, and cross-file nearby-atom inspection. Version 1.6.0 adds backbone,
 line, space-filling, and molecular-surface protein styles. Version 1.7.0 adds
 presentation-ready scene presets, palette previews, session-wide unique chain
 colors, and optional file/chain labels.
+Version 2.0.0 adds the linked analysis workspace with property mapping,
+residue annotations, sequence tracks, and structural measurements.

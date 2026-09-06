@@ -4,41 +4,43 @@ import type { PluginStateObject } from 'molstar/lib/mol-plugin-state/objects';
 import { MolScriptBuilder as MS } from 'molstar/lib/mol-script/language/builder';
 import { StructureSelectionQueries as Q } from 'molstar/lib/mol-plugin-state/helpers/structure-selection-query';
 import { Color } from 'molstar/lib/mol-util/color';
-import type { Palette, RepresentationMode, ScenePart, StructureMetadata, VisualPreset } from './types';
+import type { Palette, RepresentationMode, ScenePart, StructureMetadata, VisualPreset, ColorMapping } from './types';
 import { chainColors, colorHex } from './palettes';
 import { cartoonParams } from './visualPresets';
 export type StructureNode = StateObjectSelector<PluginStateObject.Molecule.Structure>;
 export interface RenderPart { node: StructureNode; state: ScenePart; protein: boolean; color: number; }
 export { chainColors } from './palettes';
-export async function renderPart(plugin: PluginContext, part: RenderPart, mode: RepresentationMode, preset: VisualPreset = 'discussion') {
+export async function renderPart(plugin: PluginContext, part: RenderPart, mode: RepresentationMode, preset: VisualPreset = 'discussion', mapping: ColorMapping = 'chain') {
   const reps = plugin.builders.structure.representation;
+  const mapped = mapping === 'element' ? 'element-symbol' : mapping === 'aa-type' ? 'residue-name' : mapping === 'secondary' ? 'secondary-structure' : mapping === 'hydrophobicity' ? 'hydrophobicity' : mapping === 'charge' ? 'residue-charge' : mapping === 'confidence' ? 'plddt-confidence' : mapping === 'custom' ? 'biomol-custom-scalar' : undefined;
   if (part.protein) {
     const carbonColor = { carbonColor: { name: 'uniform' as const, params: { value: Color(part.color) } } };
+    const color = (mapped || 'uniform') as never, colorParams = mapped ? {} : { value: Color(part.color) };
     if (mode === 'cartoon' || mode === 'cartoon-sticks') {
-      await reps.addRepresentation(part.node, { type: 'cartoon', color: 'uniform', colorParams: { value: Color(part.color) }, typeParams: cartoonParams(preset) });
+      await reps.addRepresentation(part.node, { type: 'cartoon', color, colorParams, typeParams: cartoonParams(preset) });
     }
     if (mode === 'cartoon-sticks' || mode === 'atoms') {
-      await reps.addRepresentation(part.node, { type: 'ball-and-stick', color: 'element-symbol', colorParams: carbonColor, typeParams: { sizeFactor: 0.18 } });
+      await reps.addRepresentation(part.node, { type: 'ball-and-stick', color: (mapped || 'element-symbol') as never, colorParams: mapped ? {} : carbonColor, typeParams: { sizeFactor: 0.18 } });
     }
     if (mode === 'backbone') {
-      await reps.addRepresentation(part.node, { type: 'backbone', color: 'uniform', colorParams: { value: Color(part.color) } });
+      await reps.addRepresentation(part.node, { type: 'backbone', color, colorParams });
     }
     if (mode === 'lines') {
-      await reps.addRepresentation(part.node, { type: 'line', color: 'element-symbol', colorParams: carbonColor, typeParams: { sizeFactor: 1 } });
+      await reps.addRepresentation(part.node, { type: 'line', color: (mapped || 'element-symbol') as never, colorParams: mapped ? {} : carbonColor, typeParams: { sizeFactor: 1 } });
     }
     if (mode === 'spacefill') {
-      await reps.addRepresentation(part.node, { type: 'spacefill', color: 'element-symbol', colorParams: carbonColor, typeParams: { sizeFactor: 0.85 } });
+      await reps.addRepresentation(part.node, { type: 'spacefill', color: (mapped || 'element-symbol') as never, colorParams: mapped ? {} : carbonColor, typeParams: { sizeFactor: 0.85 } });
     }
     if (mode === 'surface') {
-      await reps.addRepresentation(part.node, { type: 'molecular-surface', color: 'uniform', colorParams: { value: Color(part.color) }, typeParams: { alpha: 0.72 } });
+      await reps.addRepresentation(part.node, { type: 'molecular-surface', color, colorParams, typeParams: { alpha: 0.72 } });
     }
   } else {
     const ion = part.state.label === 'Ions';
     const glycan = part.state.label === 'Glycans';
-    await reps.addRepresentation(part.node, { type: ion ? 'spacefill' : glycan ? 'carbohydrate' : 'ball-and-stick', color: glycan ? 'carbohydrate-symbol' : 'element-symbol', colorParams: glycan ? {} : { carbonColor: { name: 'uniform', params: { value: Color(part.color) } } } });
+    await reps.addRepresentation(part.node, { type: ion ? 'spacefill' : glycan ? 'carbohydrate' : 'ball-and-stick', color: (mapped || (glycan ? 'carbohydrate-symbol' : 'element-symbol')) as never, colorParams: mapped || glycan ? {} : { carbonColor: { name: 'uniform', params: { value: Color(part.color) } } } });
   }
 }
-export async function addDefaultRepresentations(plugin: PluginContext, structure: StructureNode, metadata: StructureMetadata, palette: Palette = 'vivid', mode: RepresentationMode = 'cartoon', colorOffset = 0, preset: VisualPreset = 'discussion') {
+export async function addDefaultRepresentations(plugin: PluginContext, structure: StructureNode, metadata: StructureMetadata, palette: Palette = 'vivid', mode: RepresentationMode = 'cartoon', colorOffset = 0, preset: VisualPreset = 'discussion', mapping: ColorMapping = 'chain') {
   const parts: RenderPart[] = [];
 
   for (let i = 0; i < metadata.chains.length; i++) {
@@ -56,6 +58,6 @@ export async function addDefaultRepresentations(plugin: PluginContext, structure
     const node = await plugin.builders.structure.tryCreateComponentFromExpression(structure, query === 'ligand' ? MS.struct.modifier.exceptBy({ 0: Q.ligand.expression, by: Q.lipid.expression }) : Q[query].expression, query);
     if (node) parts.push({ node, protein: false, color, state: { id: query, label, visible: query !== 'water' } });
   }
-  for (const part of parts) await renderPart(plugin, part, mode, preset);
+  for (const part of parts) await renderPart(plugin, part, mode, preset, mapping);
   return parts;
 }

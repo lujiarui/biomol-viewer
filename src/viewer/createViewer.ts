@@ -2,6 +2,8 @@ import { PluginContext } from 'molstar/lib/mol-plugin/context';
 import { PluginSpec } from 'molstar/lib/mol-plugin/spec';
 import { PluginBehaviors } from 'molstar/lib/mol-plugin/behavior';
 import { Color } from 'molstar/lib/mol-util/color';
+import { PLDDTConfidenceColorThemeProvider } from 'molstar/lib/extensions/model-archive/quality-assessment/color/plddt';
+import { BiomolCustomScalarColorThemeProvider } from './customColorTheme';
 
 /** Headless plugin: native camera input, no Mol* UI, focus-on-click, or remote services. */
 export async function createViewer(host: HTMLDivElement, signal: AbortSignal) {
@@ -16,6 +18,8 @@ export async function createViewer(host: HTMLDivElement, signal: AbortSignal) {
   });
   try {
     await plugin.init();
+    plugin.representation.structure.themes.colorThemeRegistry.add(PLDDTConfidenceColorThemeProvider);
+    plugin.representation.structure.themes.colorThemeRegistry.add(BiomolCustomScalarColorThemeProvider);
     signal.throwIfAborted();
     if (!await plugin.mountAsync(host)) throw new Error('WebGL is unavailable. Try a browser with WebGL enabled.');
     signal.throwIfAborted();

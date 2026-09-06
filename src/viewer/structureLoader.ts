@@ -3,7 +3,7 @@ import { Mat4 } from 'molstar/lib/mol-math/linear-algebra';
 import type { PluginContext } from 'molstar/lib/mol-plugin/context';
 import { Structure, StructureElement, StructureProperties, Unit } from 'molstar/lib/mol-model/structure';
 import { addDefaultRepresentations } from './representations';
-import type { ChainSummary, StructureFormat, StructureMetadata, Palette, RepresentationMode, VisualPreset } from './types';
+import type { ChainSummary, StructureFormat, StructureMetadata, Palette, RepresentationMode, VisualPreset, ColorMapping } from './types';
 
 export function detectFormat(fileName: string): StructureFormat {
   const extension = fileName.match(/\.([^.]+)$/)?.[1].toLowerCase();
@@ -37,7 +37,7 @@ export function extractMetadata(structure: Structure, fileName: string, format: 
 }
 
 /** Stage a new data subtree; caller deletes the old tree only after this succeeds. */
-export async function loadStructure(plugin: PluginContext, text: string, fileName: string, format: StructureFormat, palette: Palette = 'vivid', mode: RepresentationMode = 'cartoon', colorOffset = 0, preset: VisualPreset = 'discussion') {
+export async function loadStructure(plugin: PluginContext, text: string, fileName: string, format: StructureFormat, palette: Palette = 'vivid', mode: RepresentationMode = 'cartoon', colorOffset = 0, preset: VisualPreset = 'discussion', mapping: ColorMapping = 'chain') {
   if (!text.trim()) throw new Error('This file is empty. Choose a PDB or mmCIF structure.');
   const data = await plugin.builders.data.rawData({ data: text, label: fileName });
   try {
@@ -48,7 +48,7 @@ export async function loadStructure(plugin: PluginContext, text: string, fileNam
     const structure = await plugin.build().to(original).apply(StateTransforms.Model.TransformStructureConformation, { transform: { name: 'matrix', params: { data: Mat4.identity(), transpose: false } } }).commit();
     if (!structure.obj?.data.elementCount) throw new Error('No atoms found.');
     const metadata = extractMetadata(structure.obj.data, fileName, format);
-    const parts = await addDefaultRepresentations(plugin, structure, metadata, palette, mode, colorOffset, preset);
+    const parts = await addDefaultRepresentations(plugin, structure, metadata, palette, mode, colorOffset, preset, mapping);
     return { dataRef: data.ref, metadata, structure, parts, sourceText: text, colorOffset };
   } catch (error) {
     await plugin.build().delete(data.ref).commit();

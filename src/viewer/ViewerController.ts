@@ -18,10 +18,15 @@ import { chainColors, renderPart } from './representations';
 import { colorHex } from './palettes';
 import { applyVisualPreset } from './visualPresets';
 import { fetchStructure, rcsbId } from './sources';
-import type { BiomolViewer, SelectionState, SceneStructure, Palette, RepresentationMode, VisualPreset } from './types';
+import type { BiomolViewer, SelectionState, SceneStructure, Palette, RepresentationMode, VisualPreset, ColorMapping, AnnotationKind, StructureAnnotation, ResidueRef, MeasurementResult } from './types';
+import { parseScalarMapping, setScalarMapping, type ScalarRecord } from './customColorTheme';
+import { interfaceArea, measurePoints, selectedAnchorPoints, sequenceResidues } from './analysis';
+import { MolScriptBuilder as MS } from 'molstar/lib/mol-script/language/builder';
+import { Color } from 'molstar/lib/mol-util/color';
 type Loaded = Awaited<ReturnType<typeof loadStructure>>;
+type AnnotationEntry = { state: StructureAnnotation; node: Loaded['structure'] };
 export class ViewerController implements BiomolViewer {
-  private entries = new Map<string, Loaded & { visible: boolean; macFile?: string; matrix: Mat4 }>();
+  private entries = new Map<string, Loaded & { visible: boolean; macFile?: string; matrix: Mat4; annotations: AnnotationEntry[] }>();
   private previousView?: Camera.Snapshot;
   private preview?: { id: string; matrix: Mat4; camera?: Camera.Snapshot; restoreAlpha: (()=>void)[] };
   private addSelection = false;
@@ -35,6 +40,8 @@ export class ViewerController implements BiomolViewer {
   private palette: Palette = 'vivid';
   private mode: RepresentationMode = 'cartoon';
   private visualPreset: VisualPreset = 'discussion';
+  private colorMapping: ColorMapping = 'chain';
+  private customScalar?: ScalarRecord[];
   private labelsVisible = false;
   private labelLayer?: HTMLDivElement;
   private drawSubscription;
@@ -116,8 +123,12 @@ export class ViewerController implements BiomolViewer {
       const format = detectFormat(file.name);
       const text = await file.text(); this.abort.signal.throwIfAborted();
       const offset = this.colorSerial;
-      const loaded = await loadStructure(this.plugin, text, file.name, format, this.palette, this.mode, offset, this.visualPreset);
+      const loaded = await loadStructure(this.plugin, text, file.name, format, this.palette, this.mode, offset, this.visualPreset, this.colorMapping === 'custom' ? 'chain' : this.colorMapping);
       if (!this.disposed) {
+        if (this.colorMapping === 'custom' && this.customScalar && loaded.structure.obj) {
+          setScalarMapping(loaded.structure.obj.data, this.customScalar);
+          for (const part of loaded.parts) { const tree=this.plugin.build();this.plugin.state.data.tree.children.get(part.node.ref)?.forEach(ref=>tree.delete(ref));await tree.commit();await renderPart(this.plugin,part,this.mode,this.visualPreset,'custom'); }
+        }
         this.colorSerial += loaded.parts.filter(part => part.protein).length;
         this.clearSelection();
         const previous = replaceId ? this.entries.get(replaceId) : undefined;
@@ -125,7 +136,7 @@ export class ViewerController implements BiomolViewer {
           for (const part of loaded.parts) part.state.visible = previous.parts.find(p => p.state.id === part.state.id)?.state.visible ?? part.state.visible;
           await this.plugin.build().delete(replaceId!).commit(); this.entries.delete(replaceId!); this.undo=this.undo.filter(u=>u.id!==replaceId); this.lastAlignment=undefined;
         }
-        this.entries.set(loaded.dataRef, { ...loaded, visible: previous?.visible ?? true, macFile, matrix: Mat4.identity() });
+        this.entries.set(loaded.dataRef, { ...loaded, visible: previous?.visible ?? true, macFile, matrix: Mat4.identity(), annotations: [] });
         this.applyVisibility(loaded.dataRef);
         this.focusStructure(loaded.dataRef);
       }
@@ -250,14 +261,15 @@ export class ViewerController implements BiomolViewer {
       helper.behaviors.values.next({ ...previous, transparent, format: { name: 'png', params: {} }, resolution: { name: 'viewport', params: {} } });
       image = await helper.getImageDataUri();
     } finally { helper.behaviors.values.next(previous); }
-    const response = await fetch('/api/exports', { method: 'POST', headers: { 'Content-Type': 'application/json', 'X-Biomol-Export': '1' }, body: JSON.stringify({ image, manifest: { version: 1, created: new Date().toISOString(), transparent, style: { palette: this.palette, representation: this.mode, visualPreset: this.visualPreset, chainLabels: this.labelsVisible }, scene: this.getScene(), transforms: [...this.entries].map(([id,e]) => ({ id, matrix: Array.from(e.matrix) })), camera: this.plugin.canvas3d?.camera.getSnapshot(), alignment: this.lastAlignment } }), signal: this.abort.signal });
+    const response = await fetch('/api/exports', { method: 'POST', headers: { 'Content-Type': 'application/json', 'X-Biomol-Export': '1' }, body: JSON.stringify({ image, manifest: { version: 1, created: new Date().toISOString(), transparent, style: { palette: this.palette, representation: this.mode, visualPreset: this.visualPreset, colorMapping: this.colorMapping, chainLabels: this.labelsVisible }, scene: this.getScene(), transforms: [...this.entries].map(([id,e]) => ({ id, matrix: Array.from(e.matrix) })), camera: this.plugin.canvas3d?.camera.getSnapshot(), alignment: this.lastAlignment } }), signal: this.abort.signal });
     if (!response.ok) throw new Error('Could not save the image on the Mac. Check the export folder and server.');
     return await response.json() as { name: string; url: string; metadataUrl: string };
   }); }
-  getScene(): SceneStructure[] { return [...this.entries].map(([id, entry]) => ({ id, metadata: structuredClone(entry.metadata), visible: entry.visible, macFile: entry.macFile, alignmentChains: entry.structure.obj ? extractAlignmentChains(entry.structure.obj.data).map(c => ({ chainId: c.chainId, authChainId: c.authChainId, kind: c.kind, count: c.anchors.length })) : [], parts: entry.parts.map(p => ({ ...p.state })) })); }
+  getScene(): SceneStructure[] { return [...this.entries].map(([id, entry]) => ({ id, metadata: structuredClone(entry.metadata), visible: entry.visible, macFile: entry.macFile, annotations: entry.annotations.map(a=>structuredClone(a.state)), alignmentChains: entry.structure.obj ? extractAlignmentChains(entry.structure.obj.data).map(c => ({ chainId: c.chainId, authChainId: c.authChainId, kind: c.kind, count: c.anchors.length })) : [], parts: entry.parts.map(p => ({ ...p.state })) })); }
   private applyVisibility(id: string) {
     const entry = this.entries.get(id); if (!entry) return;
     for (const part of entry.parts) setSubtreeVisibility(this.plugin.state.data, part.node.ref, !(entry.visible && part.state.visible));
+    for (const annotation of entry.annotations) setSubtreeVisibility(this.plugin.state.data, annotation.node.ref, !entry.visible);
     this.updateChainLabels();
   }
   setVisibility(id: string, visible: boolean, partId?: string) {
@@ -287,7 +299,7 @@ export class ViewerController implements BiomolViewer {
         }
         const tree = this.plugin.build();
         this.plugin.state.data.tree.children.get(part.node.ref)?.forEach(ref => tree.delete(ref));
-        await tree.commit(); await renderPart(this.plugin, part, mode, this.visualPreset);
+        await tree.commit(); await renderPart(this.plugin, part, mode, this.visualPreset, this.colorMapping);
       }
       this.applyVisibility(id);
     }
@@ -300,13 +312,40 @@ export class ViewerController implements BiomolViewer {
       for (const part of entry.parts) {
         const tree = this.plugin.build();
         this.plugin.state.data.tree.children.get(part.node.ref)?.forEach(ref => tree.delete(ref));
-        await tree.commit(); await renderPart(this.plugin, part, this.mode, preset);
+        await tree.commit(); await renderPart(this.plugin, part, this.mode, preset, this.colorMapping);
       }
       this.applyVisibility(id);
     }
     this.visualPreset = preset;
   }); }
   setChainLabels(visible: boolean) { this.labelsVisible = visible; this.updateChainLabels(); }
+  setColorMapping(mapping: ColorMapping, customScalar?: string) { return this.run(async()=>{
+    const records=mapping==='custom'?parseScalarMapping(customScalar||''):undefined;
+    this.clearSelection();
+    for(const [id,entry] of this.entries){if(records&&entry.structure.obj)setScalarMapping(entry.structure.obj.data,records);for(const part of entry.parts){const tree=this.plugin.build();this.plugin.state.data.tree.children.get(part.node.ref)?.forEach(ref=>tree.delete(ref));await tree.commit();await renderPart(this.plugin,part,this.mode,this.visualPreset,mapping);}this.applyVisibility(id);}
+    this.colorMapping=mapping;this.customScalar=records;
+  });}
+  private addAnnotationLoci(entryId:string,loci:StructureElement.Loci,kind:AnnotationKind,name:string,color:string){return this.run(async()=>{
+    const entry=this.entries.get(entryId);if(!entry?.structure.obj||StructureElement.Loci.isEmpty(loci))throw new Error('Select one or more residues in a structure first.');
+    if(!/^#[0-9a-f]{6}$/i.test(color))throw new Error('Choose a six-digit annotation color.');
+    const node=await this.plugin.builders.structure.tryCreateComponentFromExpression(entry.structure,StructureElement.Loci.toExpression(loci),`annotation-${kind}`);if(!node)throw new Error('Could not create this annotation.');
+    const id=crypto.randomUUID(),state:StructureAnnotation={id,kind,name:name.trim()||kind,color,residues:[]};
+    const seen=new Set<string>();StructureElement.Loci.forEachLocation(loci,location=>{const insertion=StructureProperties.residue.pdbx_PDB_ins_code(location),label=StructureProperties.residue.label_seq_id(location),auth=StructureProperties.residue.auth_seq_id(location);const residue:ResidueRef={modelId:String(location.unit.model.modelNum),chainId:StructureProperties.chain.label_asym_id(location),authChainId:StructureProperties.chain.auth_asym_id(location),residueNumber:label||auth,authResidueNumber:auth,residueName:StructureProperties.residue.label_comp_id(location),...(insertion&&insertion!=='.'&&insertion!=='?'?{insertionCode:insertion}:{})};const k=residueKey(residue);if(!seen.has(k)){seen.add(k);state.residues.push(residue);}});
+    await this.plugin.builders.structure.representation.addRepresentation(node,{type:'ball-and-stick',color:'uniform',colorParams:{value:Color(Number.parseInt(color.slice(1),16))},typeParams:{sizeFactor:0.28}});
+    entry.annotations.push({state,node});this.applyVisibility(entryId);return structuredClone(state);
+  });}
+  addAnnotation(kind:AnnotationKind,name:string,color:string){if(!this.selection.structureId||!this.selectedLoci)return Promise.reject(new Error('Select one or more residues in a structure first.'));return this.addAnnotationLoci(this.selection.structureId,this.selectedLoci,kind,name,color);}
+  suggestLigandPocket(name:string,color:string){
+    const candidate=[...this.entries].find(([,entry])=>entry.visible&&entry.parts.some(part=>part.state.id==='ligand'&&part.state.visible));if(!candidate)return Promise.reject(new Error('No visible ligand is available for a contact-pocket suggestion.'));
+    const [id,entry]=candidate,ligand=entry.parts.find(part=>part.state.id==='ligand')?.node.obj?.data;if(!ligand||!entry.structure.obj)return Promise.reject(new Error('No visible ligand is available for a contact-pocket suggestion.'));
+    const search=neighborhoodSearch(StructureElement.Loci.all(ligand),4),protein=visibleSubset(entry.structure.obj.data,entry.parts.filter(p=>p.protein&&p.state.visible).map(p=>({visible:true,structure:p.node.obj?.data})));if(!protein)return Promise.reject(new Error('No visible protein chain is available.'));
+    return this.addAnnotationLoci(id,search(protein,entry.structure.obj.data), 'pocket',name||'Ligand-contact pocket',color);
+  }
+  removeAnnotation(structureId:string,annotationId:string){return this.run(async()=>{const entry=this.entries.get(structureId);const index=entry?.annotations.findIndex(a=>a.state.id===annotationId)??-1;if(!entry||index<0)return;const [annotation]=entry.annotations.splice(index,1);await this.plugin.build().delete(annotation.node.ref).commit();});}
+  getSequence(structureId:string,chainId:string){const entry=this.entries.get(structureId);if(!entry?.structure.obj)throw new Error('Structure is no longer open.');return{structureId,fileName:entry.metadata.fileName,chainId,authChainId:entry.metadata.chains.find(c=>c.chainId===chainId)?.authChainId||chainId,residues:sequenceResidues(entry.structure.obj.data,entry.annotations.map(a=>a.state),chainId)};}
+  selectSequenceResidue(structureId:string,residue:ResidueRef,additive=false){const entry=this.entries.get(structureId);if(!entry?.structure.obj)return;const root=entry.structure.obj.data;const expr=MS.struct.modifier.wholeResidues([MS.struct.generator.atomGroups({'chain-test':MS.core.rel.eq([MS.struct.atomProperty.macromolecular.label_asym_id(),residue.chainId]),'residue-test':MS.core.rel.eq([MS.struct.atomProperty.macromolecular.label_seq_id(),residue.residueNumber])})]);const loci=StructureElement.Loci.fromExpression(root,expr);if(StructureElement.Loci.isEmpty(loci))return;if(additive&&this.selection.structureId===structureId&&this.selectedLoci){this.selectedLoci=StructureElement.Loci.union(this.selectedLoci,loci);this.selection={...this.selection,residues:[...this.selection.residues,residue]};this.plugin.managers.interactivity.lociSelects.select({loci},false);}else{this.clearSelection();this.selectedLoci=loci;this.selection={residues:[residue],structureId,fileName:entry.metadata.fileName};this.plugin.managers.interactivity.lociSelects.selectOnly({loci},false);}this.emitSelection();}
+  measureSelection(kind:'distance'|'angle'|'dihedral'|'rmsd'|'radius'):MeasurementResult{const entry=this.selection.structureId?this.entries.get(this.selection.structureId):undefined;if(!entry?.structure.obj)throw new Error('Select residues from one structure first.');return measurePoints(kind,selectedAnchorPoints(entry.structure.obj.data,this.selection.residues));}
+  measureInterface(structureId:string,chainA:string,chainB:string){const entry=this.entries.get(structureId);if(!entry?.structure.obj)throw new Error('Structure is no longer open.');return interfaceArea(entry.structure.obj.data,chainA,chainB);}
   private updateChainLabels() {
     if (!this.labelLayer) return;
     this.labelLayer.replaceChildren();
