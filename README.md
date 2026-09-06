@@ -7,7 +7,7 @@ The Mac generates, stores, and serves PDB/mmCIF files; the iPad provides the
 touch-first viewer in Safari. It uses neither screen mirroring nor an extended
 display.
 
-The current release is **1.6.0**. It supports English and Simplified Chinese.
+The current release is **1.7.0**. It supports English and Simplified Chinese.
 
 **Start here:** [run the first session](#first-session-on-mac-and-ipad) ·
 [share a structure folder](#share-structures-from-the-mac) ·
@@ -43,8 +43,10 @@ reloaded without rebuilding the app or reopening the scene.
   or browse a folder shared by the Mac.
 - Load several structures and control the visibility of each file, chain, and
   molecular component.
-- Color protein chains with multiple palettes while rendering ligands, nucleic
-  acids, glycans, ions, and water distinctly.
+- Color protein chains with seven previewed palettes and session-wide unique
+  colors while rendering ligands, nucleic acids, glycans, ions, and water distinctly.
+- Switch among quick-discussion, presentation, and publication scene presets;
+  optionally place compact file/chain labels directly over the structure view.
 - Select residues or atoms, focus at atomic scale, and show complete residues
   within 5 Å across all visible aligned structures.
 - Superpose chains or custom regions using sequence-based or coordinate-only
@@ -134,7 +136,7 @@ coordinates until they are aligned.
 Use **Files** to show or hide complete structures, protein chains, water,
 ligands, nucleic acids, and other component groups. The panel also provides
 structure fitting, duplication, removal, representation modes, chain palettes,
-and residue/atom picking modes.
+purpose-based scene presets, optional file/chain labels, and residue/atom picking modes.
 
 Drag to rotate, pinch to zoom, and use **Reset view** to fit the visible scene.
 **Purge all structures** clears the browser scene and alignment history without
@@ -154,6 +156,10 @@ For close inspection:
 3. Choose among **Cartoon**, **Cartoon + sticks**, **Backbone**, **Lines**,
    **Ball + stick**, **Space filling**, and **Molecular surface**. Use a style
    with atom geometry when the required atom is not visible in a cartoon.
+4. Choose **Quick discussion** for responsive live work, **Presentation** for
+   bolder lighting and depth, or **Publication** for fine ribbons and crisp outlines.
+   Palette buttons preview their colors before applying them. **Show file and chain
+   labels** adds small, camera-following labels and remains off by default.
 
 Nearby atoms is a geometric proximity view; it does not classify hydrogen bonds
 or other chemical interactions. **Clear selection** removes the temporary view.
@@ -288,4 +294,6 @@ Biomol Viewer is available under the [MIT License](LICENSE).
 The original physical-iPad-tested release is preserved by the `v1.0.0` Git tag.
 Version 1.5.0 adds the Biomol branding, flat project layout, compact standalone
 runtime, and cross-file nearby-atom inspection. Version 1.6.0 adds backbone,
-line, space-filling, and molecular-surface protein styles.
+line, space-filling, and molecular-surface protein styles. Version 1.7.0 adds
+presentation-ready scene presets, palette previews, session-wide unique chain
+colors, and optional file/chain labels.

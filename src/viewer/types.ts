@@ -1,7 +1,8 @@
 import type { AlignmentRequest, AlignmentReport, PolymerKind } from './alignment';
 export type StructureFormat = 'pdb' | 'mmcif';
-export type Palette = 'vivid' | 'pastel' | 'accessible';
+export type Palette = 'vivid' | 'pastel' | 'accessible' | 'ocean' | 'sunset' | 'forest' | 'berry';
 export type RepresentationMode = 'cartoon' | 'cartoon-sticks' | 'backbone' | 'lines' | 'atoms' | 'spacefill' | 'surface';
+export type VisualPreset = 'discussion' | 'presentation' | 'publication';
 export interface ChainSummary { chainId: string; authChainId: string; residueCount: number; }
 export interface StructureMetadata { fileName: string; format: StructureFormat; chains: ChainSummary[]; residueCount: number; atomCount: number; }
 export interface ScenePart { id: string; label: string; visible: boolean; color?: string; }
@@ -27,6 +28,8 @@ export interface BiomolViewer {
   removeStructure(id: string): Promise<void>;
   focusStructure(id: string): void;
   setStyle(palette: Palette, mode: RepresentationMode): Promise<void>;
+  setVisualPreset(preset: VisualPreset): Promise<void>;
+  setChainLabels(visible: boolean): void;
   setPicking(mode: 'residue' | 'atom'): void;
   focusSelection(): void;
   showNeighborhood(): Promise<void>;

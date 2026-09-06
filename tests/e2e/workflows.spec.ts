@@ -17,7 +17,7 @@ test('RCSB complex, palettes, species controls and multiple files', async ({ pag
   await expect(panel.getByRole('checkbox', { name: 'Ligands', exact: true })).toBeChecked();
   await expect(panel.getByRole('checkbox', { name: 'Water', exact: true })).not.toBeChecked();
   const oldColor = await panel.locator('.swatch').first().getAttribute('style');
-  await panel.getByLabel('Chain palette').selectOption('pastel');
+  await panel.getByRole('button', { name: 'Pastel' }).click();
   await expect(page.getByRole('main')).toHaveAttribute('aria-busy', 'false');
   await expect(panel.locator('.swatch').first()).not.toHaveAttribute('style', oldColor!);
   await panel.getByRole('checkbox', { name: /Protein · Chain A/ }).uncheck();
@@ -54,6 +54,34 @@ test('protein visualization menu renders backbone, lines, space filling and surf
   await page.screenshot({ path: `test-results/molecular-surface-${test.info().project.name}.png` });
   await page.getByRole('button', { name: 'Language / 语言' }).click();
   await expect(page.getByRole('combobox', { name: '显示方式', exact: true }).locator('option:checked')).toHaveText('分子表面');
+  expect(errors).toEqual([]);
+});
+test('presentation presets, palette previews, unique colors and optional chain labels', async ({ page }) => {
+  const errors: string[] = []; page.on('pageerror', error => errors.push(error.message));
+  await page.goto('/');
+  await page.getByLabel('Open structure file').setInputFiles('public/examples/example.cif');
+  await page.getByRole('button', { name: 'Manage structures' }).click();
+  const panel = page.getByRole('complementary', { name: 'Structures' });
+  await expect(panel.locator('.palette-choice')).toHaveCount(7);
+  await expect(panel.locator('.palette-strip i')).toHaveCount(42);
+  await panel.locator('.scene-entry').first().getByRole('button', { name: 'Duplicate' }).click();
+  await expect(panel.locator('.scene-entry')).toHaveCount(2);
+  await panel.locator('.scene-entry').first().getByRole('button', { name: 'Duplicate' }).click();
+  await expect(panel.locator('.scene-entry')).toHaveCount(3);
+  const colors = await panel.locator('.scene-entry .swatch').evaluateAll(nodes => nodes.map(node => (node as HTMLElement).style.background));
+  expect(new Set(colors).size).toBe(colors.length);
+  const canvas = page.locator('canvas');
+  const discussion = await canvas.screenshot();
+  await panel.getByLabel('Scene preset').selectOption('presentation');
+  await expect(page.getByRole('main')).toHaveAttribute('aria-busy', 'false');
+  const presentation = await canvas.screenshot();
+  expect(presentation.equals(discussion)).toBe(false);
+  await panel.getByLabel('Scene preset').selectOption('publication');
+  await expect(page.getByRole('main')).toHaveAttribute('aria-busy', 'false');
+  await panel.getByRole('checkbox', { name: 'Show file and chain labels' }).check();
+  await expect(page.locator('.chain-label')).toHaveCount(3);
+  await expect(page.locator('.chain-label').first()).toContainText('example.cif');
+  await page.screenshot({ path: `test-results/publication-labels-${test.info().project.name}.png` });
   expect(errors).toEqual([]);
 });
 test('Mac folder files open over the local server and refresh finds new outputs', async ({ page, request }) => {

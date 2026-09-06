@@ -33,3 +33,7 @@ Nearby atoms now spans checked components across aligned files. Smaller language
 ## 1.6 — Expanded visualization styles
 
 Added backbone, line, space-filling, and translucent molecular-surface protein representations. The existing cartoon, cartoon-with-sticks, and ball-and-stick modes remain available. Non-protein components retain their distinct species-specific representations in every mode.
+
+## 1.7 — Presentation-ready styling
+
+Added quick-discussion, presentation, and publication scene presets that coordinate cartoon geometry, lighting, depth, and outlines. Seven chain palettes now show inline color previews. A stable session-wide chain index prevents color reuse across open files, including after removal or reload. Optional compact labels track visible chain centers and identify the source file and chain without intercepting canvas gestures or appearing in exported molecular images.

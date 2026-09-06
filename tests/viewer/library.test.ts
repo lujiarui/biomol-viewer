@@ -22,9 +22,10 @@ test('RCSB IDs accept legacy and extended IDs but cannot inject URLs', () => {
   for (const id of ['', '../1crn', 'https://example.com', 'abcd', '1abc.cif']) expect(() => rcsbId(id)).toThrow();
 });
 test('presets distinguish chains and large complexes receive distinct colors', () => {
-  for (const palette of ['vivid', 'pastel', 'accessible'] as const) {
+  for (const palette of ['vivid', 'pastel', 'accessible', 'ocean', 'sunset', 'forest', 'berry'] as const) {
     expect(new Set(chainColors(palette, 4)).size).toBe(4);
-    expect(new Set(chainColors(palette, 12)).size).toBe(12);
+    expect(new Set(chainColors(palette, 64)).size).toBe(64);
+    expect(chainColors(palette, 12)).toEqual(chainColors(palette, 64).slice(0, 12));
   }
   expect(chainColors('vivid', 4)).not.toEqual(chainColors('pastel', 4));
 });

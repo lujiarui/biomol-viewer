@@ -57,12 +57,24 @@ input:not([type=checkbox]), select { color: #edf2f7; background: #111d27; border
 .structure-panel { position: absolute; top: 95px; right: 16px; bottom: 20px; width: min(350px, calc(100% - 32px)); background: #1c2934fa; border: 1px solid #4a606c; border-radius: 18px; padding: 18px; overflow: auto; box-shadow: 0 16px 40px #0005; }
 .style-controls { display: grid; gap: 12px; margin: 20px 0; }
 .style-controls label { display: grid; gap: 6px; font-size: 14px; }
+.palette-field { margin: 0; padding: 0; border: 0; }
+.palette-field legend { font-size: 14px; margin-bottom: 7px; }
+.palette-options { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }
+.palette-choice { display: grid; gap: 7px; min-width: 0; padding: 8px 9px; border: 1px solid #40525f; border-radius: 10px; text-align: left; font-size: 12px; }
+.palette-choice[aria-pressed="true"] { border-color: #a0e3d3; background: #29453f; box-shadow: inset 0 0 0 1px #a0e3d355; }
+.palette-strip { display: flex; height: 7px; overflow: hidden; border-radius: 4px; }
+.palette-strip i { flex: 1; }
+.compact-check { display: flex !important; }
 .scene-entry { border-top: 1px solid #41515d; padding: 12px 0; }
 .check-row { display: flex; gap: 10px; align-items: center; min-height: 44px; overflow-wrap: anywhere; font-size: 14px; }
 .check-row input { width: 22px; height: 22px; flex-shrink: 0; accent-color: #a0e3d3; }
 .entry-actions { display: flex; gap: 8px; margin: 8px 0; }
 .part-row { padding-left: 10px; }
 .swatch { width: 14px; height: 14px; border-radius: 50%; flex-shrink: 0; }
+.viewer-canvas { position: relative; width: 100%; height: 100%; overflow: hidden; }
+.chain-label-layer { position: absolute; inset: 0; z-index: 2; pointer-events: none; overflow: hidden; }
+.chain-label { position: absolute; transform: translate(-50%, 50%); max-width: 180px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; padding: 3px 7px 3px 6px; border: 1px solid color-mix(in srgb, var(--chain-color) 75%, white); border-radius: 6px; background: #101820d9; color: #f7fbff; box-shadow: 0 2px 8px #0008; font-size: 10px; line-height: 1.25; text-shadow: 0 1px 2px #000; }
+.chain-label::before { content: ''; display: inline-block; width: 6px; height: 6px; margin-right: 5px; border-radius: 50%; background: var(--chain-color); }
 .selection-sheet { width: min(820px, calc(100% - 32px)); flex-wrap: wrap; }
 .selection-actions { display: flex; gap: 8px; flex-wrap: wrap; }
 .selection-detail { overflow-wrap: anywhere; }

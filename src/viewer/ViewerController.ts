@@ -7,7 +7,7 @@ import { setSubtreeVisibility } from 'molstar/lib/mol-plugin/behavior/static/sta
 import { ButtonsType } from 'molstar/lib/mol-util/input/input-observer';
 import { OrderedSet } from 'molstar/lib/mol-data/int';
 import { bestView } from './bestView';
-import { Mat4, Vec3 } from 'molstar/lib/mol-math/linear-algebra';
+import { Mat4, Vec3, Vec4 } from 'molstar/lib/mol-math/linear-algebra';
 import { extractAlignmentChains, fitChains, residueKey } from './alignment';
 import type { AlignmentRequest, AlignmentReport } from './alignment';
 import { examplePath } from './examples';
@@ -15,8 +15,10 @@ import { createViewer } from './createViewer';
 import { detectFormat, loadStructure } from './structureLoader';
 import { residueFromLoci } from './selection';
 import { chainColors, renderPart } from './representations';
+import { colorHex } from './palettes';
+import { applyVisualPreset } from './visualPresets';
 import { fetchStructure, rcsbId } from './sources';
-import type { BiomolViewer, SelectionState, SceneStructure, Palette, RepresentationMode } from './types';
+import type { BiomolViewer, SelectionState, SceneStructure, Palette, RepresentationMode, VisualPreset } from './types';
 type Loaded = Awaited<ReturnType<typeof loadStructure>>;
 export class ViewerController implements BiomolViewer {
   private entries = new Map<string, Loaded & { visible: boolean; macFile?: string; matrix: Mat4 }>();
@@ -32,12 +34,23 @@ export class ViewerController implements BiomolViewer {
   private picking: 'residue' | 'atom' = 'residue';
   private palette: Palette = 'vivid';
   private mode: RepresentationMode = 'cartoon';
+  private visualPreset: VisualPreset = 'discussion';
+  private labelsVisible = false;
+  private labelLayer?: HTMLDivElement;
+  private drawSubscription;
   private listeners = new Set<(selection: SelectionState) => void>();
   private clickSubscription;
   private disposed = false;
   private pending?: Promise<unknown>;
   private abort = new AbortController();
-  private constructor(private plugin: PluginContext, private observer: ResizeObserver) {
+  private constructor(private plugin: PluginContext, private observer: ResizeObserver, private host: HTMLDivElement) {
+    if (typeof document !== 'undefined' && host.appendChild) {
+      this.labelLayer = document.createElement('div');
+      this.labelLayer.className = 'chain-label-layer';
+      this.labelLayer.setAttribute('aria-hidden', 'true');
+      host.appendChild(this.labelLayer);
+    }
+    this.drawSubscription = plugin.canvas3d?.didDraw.subscribe(() => this.updateChainLabels());
     plugin.managers.interactivity.setProps({ granularity: 'residue' });
     this.clickSubscription = plugin.behaviors.interaction.click.subscribe(event => {
       if (this.disposed || this.pending || this.preview || event.button !== ButtonsType.Flag.Primary) return;
@@ -73,7 +86,7 @@ export class ViewerController implements BiomolViewer {
     const plugin = await createViewer(host, signal);
     const observer = new ResizeObserver(() => plugin.handleResize());
     observer.observe(host);
-    return new ViewerController(plugin, observer);
+    return new ViewerController(plugin, observer, host);
   }
   getSelection(): SelectionState { return { ...this.selection, residues: this.selection.residues.map(r => ({ ...r })) }; }
   subscribeSelection(callback: (selection: SelectionState) => void) { this.listeners.add(callback); callback(this.getSelection()); return () => { this.listeners.delete(callback); }; }
@@ -102,10 +115,10 @@ export class ViewerController implements BiomolViewer {
       const file = await read();
       const format = detectFormat(file.name);
       const text = await file.text(); this.abort.signal.throwIfAborted();
-      const offset = replaceId ? this.entries.get(replaceId)?.colorOffset ?? this.colorSerial : this.colorSerial;
-      const loaded = await loadStructure(this.plugin, text, file.name, format, this.palette, this.mode, offset);
-      if (!replaceId) this.colorSerial++;
+      const offset = this.colorSerial;
+      const loaded = await loadStructure(this.plugin, text, file.name, format, this.palette, this.mode, offset, this.visualPreset);
       if (!this.disposed) {
+        this.colorSerial += loaded.parts.filter(part => part.protein).length;
         this.clearSelection();
         const previous = replaceId ? this.entries.get(replaceId) : undefined;
         if (previous) {
@@ -203,7 +216,7 @@ export class ViewerController implements BiomolViewer {
   });}
   purge(){return this.run(async()=>{
     this.clearSelection();const update=this.plugin.build();for(const id of this.entries.keys())update.delete(id);await update.commit();
-    this.entries.clear();this.previousView=undefined;this.undo=[];this.lastAlignment=undefined;this.detailRefs=[];this.addSelection=false;this.colorSerial=0;this.resetCamera();
+    this.entries.clear();this.previousView=undefined;this.undo=[];this.lastAlignment=undefined;this.detailRefs=[];this.addSelection=false;this.colorSerial=0;this.updateChainLabels();this.resetCamera();
   });}
   applyAlignment(request: AlignmentRequest) { return this.run(()=>this.commitAlignment(request)); }
   private async commitAlignment(request: AlignmentRequest) {
@@ -237,7 +250,7 @@ export class ViewerController implements BiomolViewer {
       helper.behaviors.values.next({ ...previous, transparent, format: { name: 'png', params: {} }, resolution: { name: 'viewport', params: {} } });
       image = await helper.getImageDataUri();
     } finally { helper.behaviors.values.next(previous); }
-    const response = await fetch('/api/exports', { method: 'POST', headers: { 'Content-Type': 'application/json', 'X-Biomol-Export': '1' }, body: JSON.stringify({ image, manifest: { version: 1, created: new Date().toISOString(), transparent, scene: this.getScene(), transforms: [...this.entries].map(([id,e]) => ({ id, matrix: Array.from(e.matrix) })), camera: this.plugin.canvas3d?.camera.getSnapshot(), alignment: this.lastAlignment } }), signal: this.abort.signal });
+    const response = await fetch('/api/exports', { method: 'POST', headers: { 'Content-Type': 'application/json', 'X-Biomol-Export': '1' }, body: JSON.stringify({ image, manifest: { version: 1, created: new Date().toISOString(), transparent, style: { palette: this.palette, representation: this.mode, visualPreset: this.visualPreset, chainLabels: this.labelsVisible }, scene: this.getScene(), transforms: [...this.entries].map(([id,e]) => ({ id, matrix: Array.from(e.matrix) })), camera: this.plugin.canvas3d?.camera.getSnapshot(), alignment: this.lastAlignment } }), signal: this.abort.signal });
     if (!response.ok) throw new Error('Could not save the image on the Mac. Check the export folder and server.');
     return await response.json() as { name: string; url: string; metadataUrl: string };
   }); }
@@ -245,6 +258,7 @@ export class ViewerController implements BiomolViewer {
   private applyVisibility(id: string) {
     const entry = this.entries.get(id); if (!entry) return;
     for (const part of entry.parts) setSubtreeVisibility(this.plugin.state.data, part.node.ref, !(entry.visible && part.state.visible));
+    this.updateChainLabels();
   }
   setVisibility(id: string, visible: boolean, partId?: string) {
     const entry = this.entries.get(id); if (!entry || this.disposed) return;
@@ -258,27 +272,62 @@ export class ViewerController implements BiomolViewer {
     if (!this.entries.has(id)) return;
     if (this.selection.structureId === id) this.clearSelection();
     await this.plugin.build().delete(id).commit(); this.entries.delete(id); this.undo=this.undo.filter(u=>u.id!==id); this.lastAlignment=undefined;
-    this.hideDetail();
+    this.hideDetail(); this.updateChainLabels();
   }); }
   focusStructure(id: string) { const entry = this.entries.get(id); if (entry?.structure.obj) this.plugin.managers.camera.focusSphere(entry.structure.obj.data.boundary.sphere, { durationMs: 250 }); }
   setStyle(palette: Palette, mode: RepresentationMode) { return this.run(async () => {
     this.clearSelection();
     for (const [id, entry] of this.entries) {
       const proteinParts = entry.parts.filter(p => p.protein);
-      const colors = chainColors(palette, Math.max(8, proteinParts.length));
+      const colors = chainColors(palette, entry.colorOffset + proteinParts.length);
       for (const part of entry.parts) {
         if (part.protein) {
           const index = proteinParts.indexOf(part);
-          part.color = colors[(index + entry.colorOffset) % colors.length]; part.state.color = '#' + part.color.toString(16).padStart(6, '0');
+          part.color = colors[index + entry.colorOffset]; part.state.color = colorHex(part.color);
         }
         const tree = this.plugin.build();
         this.plugin.state.data.tree.children.get(part.node.ref)?.forEach(ref => tree.delete(ref));
-        await tree.commit(); await renderPart(this.plugin, part, mode);
+        await tree.commit(); await renderPart(this.plugin, part, mode, this.visualPreset);
       }
       this.applyVisibility(id);
     }
     this.palette = palette; this.mode = mode;
   }); }
+  setVisualPreset(preset: VisualPreset) { return this.run(async () => {
+    this.clearSelection();
+    applyVisualPreset(this.plugin, preset);
+    for (const [id, entry] of this.entries) {
+      for (const part of entry.parts) {
+        const tree = this.plugin.build();
+        this.plugin.state.data.tree.children.get(part.node.ref)?.forEach(ref => tree.delete(ref));
+        await tree.commit(); await renderPart(this.plugin, part, this.mode, preset);
+      }
+      this.applyVisibility(id);
+    }
+    this.visualPreset = preset;
+  }); }
+  setChainLabels(visible: boolean) { this.labelsVisible = visible; this.updateChainLabels(); }
+  private updateChainLabels() {
+    if (!this.labelLayer) return;
+    this.labelLayer.replaceChildren();
+    const canvas = this.plugin.canvas3d;
+    if (!this.labelsVisible || !canvas) return;
+    const sx = this.host.clientWidth / canvas.camera.viewport.width;
+    const sy = this.host.clientHeight / canvas.camera.viewport.height;
+    for (const entry of this.entries.values()) for (const part of entry.parts) {
+      if (!entry.visible || !part.protein || !part.state.visible || !part.node.obj) continue;
+      const point = canvas.camera.project(Vec4(), part.node.obj.data.boundary.sphere.center);
+      if (point[2] < 0 || point[2] > 1) continue;
+      const label = document.createElement('span');
+      const chain = part.state.label.replace(/^Protein · Chain /, '');
+      label.className = 'chain-label';
+      label.textContent = `${entry.metadata.fileName} · ${chain}`;
+      label.style.left = `${point[0] * sx}px`;
+      label.style.bottom = `${point[1] * sy}px`;
+      label.style.setProperty('--chain-color', colorHex(part.color));
+      this.labelLayer.appendChild(label);
+    }
+  }
   setPicking(mode: 'residue' | 'atom') { this.picking = mode; this.clearSelection(false); }
   focusSelection() { if (this.selectedLoci) this.plugin.managers.camera.focusLoci(this.selectedLoci, { minRadius: this.picking === 'atom' ? 1.5 : 3, extraRadius: 1, durationMs: 250 }); }
   showNeighborhood() { return this.run(async () => {
@@ -291,7 +340,7 @@ export class ViewerController implements BiomolViewer {
         const loci=search(visible,entry.structure.obj.data);if(StructureElement.Loci.isEmpty(loci))continue;
         const node=await this.plugin.builders.structure.tryCreateComponentFromExpression(entry.structure,StructureElement.Loci.toExpression(loci),'local-detail');
         if(node){this.detailRefs.push(node.ref);atomCount+=node.obj?.data.elementCount||0;fileCount++;
-          const color=chainColors(this.palette,8)[entry.colorOffset%8];
+          const color=chainColors(this.palette,entry.colorOffset+1)[entry.colorOffset];
           await this.plugin.builders.structure.representation.addRepresentation(node,{type:'ball-and-stick',color:'element-symbol',colorParams:{carbonColor:{name:'uniform',params:{value:color}}},typeParams:{sizeFactor:0.22}});
         }
       }
@@ -321,7 +370,7 @@ export class ViewerController implements BiomolViewer {
   resetCamera() { if (!this.disposed) this.plugin.managers.camera.reset(); }
   dispose() {
     if (this.disposed) return; this.disposed = true; this.abort.abort();
-    this.observer.disconnect(); this.clickSubscription.unsubscribe(); this.listeners.clear();
+    this.observer.disconnect(); this.clickSubscription.unsubscribe(); this.drawSubscription?.unsubscribe(); this.labelLayer?.remove(); this.listeners.clear();
     this.plugin.unmount(); this.plugin.animationLoop.stop();
     if (this.pending) void this.pending.then(() => this.plugin.dispose(), () => this.plugin.dispose()); else this.plugin.dispose();
   }
