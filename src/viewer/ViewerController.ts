@@ -36,7 +36,9 @@ export class ViewerController implements BiomolViewer {
   private preview?: { id: string; matrix: Mat4; camera?: Camera.Snapshot; restoreAlpha: (()=>void)[] };
   private addSelection = false;
   private rangeSelection = false;
-  private rangeDrag?: { start?: ReturnType<ViewerController['pickResidueAt']>; end?: ReturnType<ViewerController['pickResidueAt']> };
+  private rangeDrag?: { start?: ReturnType<ViewerController['pickResidueNear']>; origin: Vec2; moved: boolean };
+  private rangePointer?: number;
+  private rangeCanvas?: HTMLCanvasElement;
   private rotateBinding?: Binding;
   private colorSerial = 0;
   private undo: { id: string; matrix: Mat4 }[] = [];
@@ -55,8 +57,6 @@ export class ViewerController implements BiomolViewer {
   private drawSubscription;
   private listeners = new Set<(selection: SelectionState) => void>();
   private clickSubscription;
-  private dragSubscription;
-  private dragEndSubscription;
   private disposed = false;
   private pending?: Promise<unknown>;
   private abort = new AbortController();
@@ -69,6 +69,11 @@ export class ViewerController implements BiomolViewer {
     }
     this.drawSubscription = plugin.canvas3d?.didDraw.subscribe(() => this.updateChainLabels());
     this.rotateBinding = plugin.canvas3d?.attribs.trackball.bindings.dragRotate;
+    this.rangeCanvas = typeof host.querySelector === 'function' ? host.querySelector('canvas') ?? undefined : undefined;
+    this.rangeCanvas?.addEventListener('pointerdown', this.onRangePointerDown);
+    this.rangeCanvas?.addEventListener('pointermove', this.onRangePointerMove);
+    this.rangeCanvas?.addEventListener('pointerup', this.onRangePointerUp);
+    this.rangeCanvas?.addEventListener('pointercancel', this.onRangePointerCancel);
     plugin.managers.interactivity.setProps({ granularity: 'residue' });
     this.clickSubscription = plugin.behaviors.interaction.click.subscribe(event => {
       if (this.disposed || this.pending || this.preview || (event.button !== ButtonsType.Flag.Primary && event.button !== ButtonsType.Flag.Trigger)) return;
@@ -98,17 +103,6 @@ export class ViewerController implements BiomolViewer {
       const location = StructureElement.Loci.getFirstLocation(this.selectedLoci);
       this.selection = { residues: [picked.residue], structureId: entry[0], fileName: entry[1].metadata.fileName, ...(this.picking === 'atom' && location ? { atomName: StructureProperties.atom.label_atom_id(location) } : {}) };
       this.emitSelection();
-    });
-    this.dragSubscription = plugin.canvas3d?.input?.drag?.subscribe(event => {
-      if (!this.rangeSelection || this.disposed || this.pending || this.preview || (event.button !== ButtonsType.Flag.Primary && event.button !== ButtonsType.Flag.Trigger)) return;
-      const picked = this.pickResidueAt(Vec2.create(event.x, event.y));
-      if (event.isStart || !this.rangeDrag) this.rangeDrag = { start: picked, end: picked };
-      else if (picked) this.rangeDrag.end = picked;
-    });
-    this.dragEndSubscription = plugin.canvas3d?.input?.interactionEnd?.subscribe(() => {
-      if (!this.rangeSelection || !this.rangeDrag) return;
-      const drag = this.rangeDrag; this.rangeDrag = undefined;
-      if (drag.start && drag.end) this.selectDraggedRange(drag.start, drag.end);
     });
   }
   static async create(host: HTMLDivElement, signal: AbortSignal): Promise<BiomolViewer> {
@@ -180,13 +174,39 @@ export class ViewerController implements BiomolViewer {
   }
   setSelectionMode(add: boolean) { this.addSelection = add; if (add) this.picking = 'residue'; }
   setRangeSelectionMode(enabled: boolean) {
-    this.rangeSelection = enabled; this.rangeDrag = undefined;
+    this.rangeSelection = enabled; this.rangeDrag = undefined; this.rangePointer = undefined;
     if (enabled) { this.addSelection = false; this.picking = 'residue'; }
     const canvas = this.plugin.canvas3d;
     this.host.classList.toggle('range-selecting', enabled);
     if (!canvas || !this.rotateBinding) return;
     canvas.setAttribs({ trackball: { bindings: { ...canvas.attribs.trackball.bindings, dragRotate: enabled ? Binding.Empty : this.rotateBinding } } });
   }
+  private pointerPoint(event: PointerEvent) {
+    const rect = this.rangeCanvas!.getBoundingClientRect();
+    return Vec2.create(event.clientX - rect.left, event.clientY - rect.top);
+  }
+  private onRangePointerDown = (event: PointerEvent) => {
+    if (!this.rangeSelection || !event.isPrimary || this.disposed || this.pending || this.preview) return;
+    const point = this.pointerPoint(event); this.rangePointer = event.pointerId;
+    try { this.rangeCanvas?.setPointerCapture?.(event.pointerId); } catch { /* Synthetic and older Safari pointers may not support capture. */ }
+    const picked = this.pickResidueNear(point); this.rangeDrag = { start: picked, origin: point, moved: false };
+    if (picked) this.plugin.managers.interactivity.lociHighlights.highlightOnly({ loci: picked.loci }, false);
+  };
+  private onRangePointerMove = (event: PointerEvent) => {
+    if (!this.rangeSelection || event.pointerId !== this.rangePointer || !this.rangeDrag) return;
+    const point = this.pointerPoint(event);
+    if (Vec2.distance(point, this.rangeDrag.origin) >= 8) this.rangeDrag.moved = true;
+  };
+  private onRangePointerUp = (event: PointerEvent) => {
+    if (event.pointerId !== this.rangePointer || !this.rangeDrag) return;
+    const drag = this.rangeDrag, end = this.pickResidueNear(this.pointerPoint(event));
+    this.rangeDrag = undefined; this.rangePointer = undefined;
+    this.plugin.managers.interactivity.lociHighlights.clearHighlights();
+    if (drag.moved && drag.start && end) this.selectDraggedRange(drag.start, end);
+  };
+  private onRangePointerCancel = (event: PointerEvent) => {
+    if (event.pointerId === this.rangePointer) { this.rangeDrag = undefined; this.rangePointer = undefined; this.plugin.managers.interactivity.lociHighlights.clearHighlights(); }
+  };
   private pickResidueAt(point: Vec2) {
     const canvas = this.plugin.canvas3d, pick = canvas?.identify(point);
     if (!canvas || !pick) return;
@@ -195,7 +215,11 @@ export class ViewerController implements BiomolViewer {
     const entry = [...this.entries.entries()].find(([, item]) => item.structure.obj?.data.root === picked.loci.structure.root);
     if (!entry?.[1].structure.obj) return;
     picked.loci = StructureElement.Loci.remap(picked.loci, entry[1].structure.obj.data);
-    return { structureId: entry[0], fileName: entry[1].metadata.fileName, residue: picked.residue };
+    return { structureId: entry[0], fileName: entry[1].metadata.fileName, residue: picked.residue, loci: picked.loci };
+  }
+  private pickResidueNear(point: Vec2) {
+    const offsets = [[0,0],[-9,0],[9,0],[0,-9],[0,9],[-7,-7],[7,-7],[-7,7],[7,7],[-18,0],[18,0],[0,-18],[0,18]];
+    for (const [x,y] of offsets) { const picked = this.pickResidueAt(Vec2.create(point[0]+x,point[1]+y)); if (picked) return picked; }
   }
   private selectDraggedRange(first: NonNullable<ReturnType<ViewerController['pickResidueAt']>>, last: NonNullable<ReturnType<ViewerController['pickResidueAt']>>) {
     if (first.structureId !== last.structureId || first.residue.chainId !== last.residue.chainId) return;
@@ -471,7 +495,9 @@ export class ViewerController implements BiomolViewer {
   resetCamera() { if (!this.disposed) this.plugin.managers.camera.reset(); }
   dispose() {
     if (this.disposed) return; this.disposed = true; this.abort.abort();
-    this.observer.disconnect(); this.clickSubscription.unsubscribe(); this.dragSubscription?.unsubscribe(); this.dragEndSubscription?.unsubscribe(); this.drawSubscription?.unsubscribe(); this.labelLayer?.remove(); this.listeners.clear();
+    this.observer.disconnect(); this.clickSubscription.unsubscribe(); this.drawSubscription?.unsubscribe();
+    this.rangeCanvas?.removeEventListener('pointerdown',this.onRangePointerDown);this.rangeCanvas?.removeEventListener('pointermove',this.onRangePointerMove);this.rangeCanvas?.removeEventListener('pointerup',this.onRangePointerUp);this.rangeCanvas?.removeEventListener('pointercancel',this.onRangePointerCancel);
+    this.labelLayer?.remove(); this.listeners.clear();
     this.plugin.unmount(); this.plugin.animationLoop.stop();
     if (this.pending) void this.pending.then(() => this.plugin.dispose(), () => this.plugin.dispose()); else this.plugin.dispose();
   }

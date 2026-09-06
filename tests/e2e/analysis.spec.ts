@@ -29,3 +29,12 @@ test('3D range mode is explicit and the sequence matrix stays compact',async({pa
  await range.click();await expect(range).toHaveAttribute('aria-pressed','true');await expect(page.locator('.viewer-canvas')).toHaveClass(/range-selecting/);await expect(panel.getByText('Camera rotation is paused.',{exact:false})).toBeVisible();
  await range.click();await expect(page.locator('.viewer-canvas')).not.toHaveClass(/range-selecting/);
 });
+
+test('dragging between two ribbon residues selects their sequence span',async({page})=>{
+ test.setTimeout(90_000);await page.goto('/');await page.getByLabel('Open structure file').setInputFiles('public/examples/example.cif');
+ const sheet=page.getByRole('region',{name:'Residue selection'}),points=new Map<string,{x:number;y:number}>();
+ for(let y=260;y<=580&&points.size<2;y+=35)for(let x=280;x<=700&&points.size<2;x+=35){await page.mouse.click(x,y);if(await sheet.isVisible()){const label=await sheet.locator('h2').innerText();points.set(label,{x,y});await sheet.getByRole('button',{name:'Clear selection'}).click();}}
+ expect(points.size).toBe(2);const [first,last]=[...points.values()];await page.getByRole('button',{name:'Analyze'}).click();await page.getByRole('button',{name:'Drag range on 3D'}).click();
+ await page.mouse.move(first.x,first.y);await page.mouse.down();await page.mouse.move(last.x,last.y,{steps:8});await page.mouse.up();
+ await expect(sheet).toBeVisible();await expect(sheet.locator('.eyebrow')).toContainText(/SELECTED RESIDUES/);
+});
