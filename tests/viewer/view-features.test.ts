@@ -18,6 +18,7 @@ test('view search reduces projection collisions and gives an orthonormal camera 
 });
 test('Chinese translations preserve scientific names and accessibility attributes',()=>{
  expect(translate('76 residues · 602 atoms','zh-CN')).toBe('76 个残基 · 602 个原子');expect(translate('geometry score 0.921 · 80% / 90% coverage','zh-CN')).toContain('覆盖率 80% / 90%');expect(translate('result_model_A.pdb','zh-CN')).toBe('result_model_A.pdb');
+ expect(translate('Molecular surface','zh-CN')).toBe('分子表面');expect(translate('Space filling','zh-CN')).toBe('空间填充');
  expect(translate('Matched chain A → B from 4 compatible pairs. First file fixed; second file moved.','zh-CN')).toContain('从 4 个兼容链对中选中链 A → B');
  const html=renderToStaticMarkup(localize(createElement('button',{'aria-label':'Clear selection'},'Clear selection'),'zh-CN'));expect(html).toContain('aria-label="清除选择"');expect(html).toContain('>清除选择<');
 });

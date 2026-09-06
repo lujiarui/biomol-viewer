@@ -19,8 +19,25 @@ export function chainColors(palette: Palette, count: number) {
 export async function renderPart(plugin: PluginContext, part: RenderPart, mode: RepresentationMode) {
   const reps = plugin.builders.structure.representation;
   if (part.protein) {
-    if (mode !== 'atoms') await reps.addRepresentation(part.node, { type: 'cartoon', color: 'uniform', colorParams: { value: Color(part.color) } });
-    if (mode !== 'cartoon') await reps.addRepresentation(part.node, { type: 'ball-and-stick', color: 'element-symbol', colorParams: { carbonColor: { name: 'uniform', params: { value: Color(part.color) } } }, typeParams: { sizeFactor: 0.18 } });
+    const carbonColor = { carbonColor: { name: 'uniform' as const, params: { value: Color(part.color) } } };
+    if (mode === 'cartoon' || mode === 'cartoon-sticks') {
+      await reps.addRepresentation(part.node, { type: 'cartoon', color: 'uniform', colorParams: { value: Color(part.color) } });
+    }
+    if (mode === 'cartoon-sticks' || mode === 'atoms') {
+      await reps.addRepresentation(part.node, { type: 'ball-and-stick', color: 'element-symbol', colorParams: carbonColor, typeParams: { sizeFactor: 0.18 } });
+    }
+    if (mode === 'backbone') {
+      await reps.addRepresentation(part.node, { type: 'backbone', color: 'uniform', colorParams: { value: Color(part.color) } });
+    }
+    if (mode === 'lines') {
+      await reps.addRepresentation(part.node, { type: 'line', color: 'element-symbol', colorParams: carbonColor, typeParams: { sizeFactor: 1 } });
+    }
+    if (mode === 'spacefill') {
+      await reps.addRepresentation(part.node, { type: 'spacefill', color: 'element-symbol', colorParams: carbonColor, typeParams: { sizeFactor: 0.85 } });
+    }
+    if (mode === 'surface') {
+      await reps.addRepresentation(part.node, { type: 'molecular-surface', color: 'uniform', colorParams: { value: Color(part.color) }, typeParams: { alpha: 0.72 } });
+    }
   } else {
     const ion = part.state.label === 'Ions';
     const glycan = part.state.label === 'Glycans';

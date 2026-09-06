@@ -29,3 +29,7 @@ English/Simplified Chinese interface and remembered language preference; optiona
 Renamed the app to Biomol Viewer and flattened the application into the repository root. Removed unused PWA tooling and disposable caches. Added a dependency-free Node runtime for the built UI and existing Mac APIs, plus explicit clean/compact scripts. Development remains reproducible with npm ci. Existing language settings and legacy environment variables remain compatible.
 
 Nearby atoms now spans checked components across aligned files. Smaller language control with flags and a direct scenario-gallery shortcut.
+
+## 1.6 — Expanded visualization styles
+
+Added backbone, line, space-filling, and translucent molecular-surface protein representations. The existing cartoon, cartoon-with-sticks, and ball-and-stick modes remain available. Non-protein components retain their distinct species-specific representations in every mode.

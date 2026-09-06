@@ -34,6 +34,28 @@ test('RCSB complex, palettes, species controls and multiple files', async ({ pag
   await expect(panel.getByRole('checkbox', { name: 'example.cif', exact: true })).toBeVisible();
   expect(errors).toEqual([]);
 });
+test('protein visualization menu renders backbone, lines, space filling and surface', async ({ page }) => {
+  const errors: string[] = []; page.on('pageerror', error => errors.push(error.message));
+  await page.goto('/');
+  await page.getByLabel('Open structure file').setInputFiles('public/examples/example.cif');
+  await expect(page.getByRole('main')).toHaveAttribute('data-loaded', 'true');
+  await page.getByRole('button', { name: 'Manage structures' }).click();
+  const representation = page.getByRole('combobox', { name: 'Representation', exact: true });
+  expect(await representation.evaluate((select: HTMLSelectElement) => select.options.length)).toBe(7);
+  let previous = await page.locator('canvas').screenshot();
+  for (const mode of ['backbone', 'lines', 'spacefill', 'surface']) {
+    await representation.selectOption(mode);
+    await expect(page.getByRole('main')).toHaveAttribute('aria-busy', 'false');
+    await page.waitForTimeout(300);
+    const current = await page.locator('canvas').screenshot();
+    expect(current.equals(previous)).toBe(false);
+    previous = current;
+  }
+  await page.screenshot({ path: `test-results/molecular-surface-${test.info().project.name}.png` });
+  await page.getByRole('button', { name: 'Language / 语言' }).click();
+  await expect(page.getByRole('combobox', { name: '显示方式', exact: true }).locator('option:checked')).toHaveText('分子表面');
+  expect(errors).toEqual([]);
+});
 test('Mac folder files open over the local server and refresh finds new outputs', async ({ page, request }) => {
   const name = `test-${Date.now()}.cif`;
   const errors: string[] = []; page.on('pageerror', e => errors.push(e.message));

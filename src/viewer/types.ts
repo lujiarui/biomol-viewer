@@ -1,7 +1,7 @@
 import type { AlignmentRequest, AlignmentReport, PolymerKind } from './alignment';
 export type StructureFormat = 'pdb' | 'mmcif';
 export type Palette = 'vivid' | 'pastel' | 'accessible';
-export type RepresentationMode = 'cartoon' | 'cartoon-sticks' | 'atoms';
+export type RepresentationMode = 'cartoon' | 'cartoon-sticks' | 'backbone' | 'lines' | 'atoms' | 'spacefill' | 'surface';
 export interface ChainSummary { chainId: string; authChainId: string; residueCount: number; }
 export interface StructureMetadata { fileName: string; format: StructureFormat; chains: ChainSummary[]; residueCount: number; atomCount: number; }
 export interface ScenePart { id: string; label: string; visible: boolean; color?: string; }

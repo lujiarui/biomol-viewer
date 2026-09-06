@@ -7,7 +7,7 @@ The Mac generates, stores, and serves PDB/mmCIF files; the iPad provides the
 touch-first viewer in Safari. It uses neither screen mirroring nor an extended
 display.
 
-The current release is **1.5.0**. It supports English and Simplified Chinese.
+The current release is **1.6.0**. It supports English and Simplified Chinese.
 
 **Start here:** [run the first session](#first-session-on-mac-and-ipad) ·
 [share a structure folder](#share-structures-from-the-mac) ·
@@ -151,8 +151,9 @@ For close inspection:
    current aligned coordinates. The selection panel reports atom and file counts.
 2. For a specific atom, choose **Files → Tap selects → Atom**, tap atom geometry,
    and choose **Focus**.
-3. Use **Cartoon + sticks** or **All atoms** when the required atom is not visible
-   in the ribbon representation.
+3. Choose among **Cartoon**, **Cartoon + sticks**, **Backbone**, **Lines**,
+   **Ball + stick**, **Space filling**, and **Molecular surface**. Use a style
+   with atom geometry when the required atom is not visible in a cartoon.
 
 Nearby atoms is a geometric proximity view; it does not classify hydrogen bonds
 or other chemical interactions. **Clear selection** removes the temporary view.
@@ -286,4 +287,5 @@ Biomol Viewer is available under the [MIT License](LICENSE).
 
 The original physical-iPad-tested release is preserved by the `v1.0.0` Git tag.
 Version 1.5.0 adds the Biomol branding, flat project layout, compact standalone
-runtime, and cross-file nearby-atom inspection.
+runtime, and cross-file nearby-atom inspection. Version 1.6.0 adds backbone,
+line, space-filling, and molecular-surface protein styles.
