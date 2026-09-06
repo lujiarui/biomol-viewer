@@ -5,7 +5,7 @@ import { trajectoryFromMmCIF } from 'molstar/lib/mol-model-formats/structure/mmc
 import { Structure, StructureElement } from 'molstar/lib/mol-model/structure';
 import { OrderedSet } from 'molstar/lib/mol-data/int';
 import { EmptyLoci } from 'molstar/lib/mol-model/loci';
-import { residueFromLoci } from '../../src/viewer/selection';
+import { residueFromLoci, residueRange } from '../../src/viewer/selection';
 import { extractMetadata } from '../../src/viewer/structureLoader';
 let structure: Structure;
 beforeAll(async () => {
@@ -28,4 +28,9 @@ test('background and empty picks do not create residues', () => {
 });
 test('metadata counts actual parsed residues and atoms', () => {
   expect(extractMetadata(structure, 'example.cif', 'mmcif')).toEqual({ fileName: 'example.cif', format: 'mmcif', atomCount: 327, residueCount: 46, chains: [{ chainId: 'A', authChainId: 'A', residueCount: 46 }] });
+});
+test('drag endpoints select an inclusive sequence-order range in either direction', () => {
+  const sequence = [1, 2, 3, 4, 5].map(residueNumber => ({ modelId: '1', chainId: 'A', residueNumber, residueName: 'ALA' }));
+  expect(residueRange(sequence, sequence[3], sequence[1]).map(r => r.residueNumber)).toEqual([2, 3, 4]);
+  expect(residueRange(sequence, sequence[0], { ...sequence[2], chainId: 'B' })).toEqual([]);
 });

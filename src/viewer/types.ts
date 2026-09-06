@@ -26,6 +26,7 @@ export interface BiomolViewer {
   loadMacFile(name: string): Promise<StructureMetadata>;
   duplicateStructure(id: string): Promise<StructureMetadata>;
   setSelectionMode(add: boolean): void;
+  setRangeSelectionMode(enabled: boolean): void;
   previewAlignment(request: AlignmentRequest): AlignmentReport;
   applyAlignment(request: AlignmentRequest): Promise<AlignmentReport>;
   beginAlignmentPreview(request: AlignmentRequest): Promise<AlignmentReport>;

@@ -3,6 +3,17 @@ import { OrderedSet } from 'molstar/lib/mol-data/int';
 import type { Loci } from 'molstar/lib/mol-model/loci';
 import type { ResidueRef } from './types';
 
+const residueIdentity = (residue: ResidueRef) => `${residue.modelId ?? ''}:${residue.chainId}:${residue.residueNumber}:${residue.insertionCode ?? ''}`;
+
+/** Return the inclusive sequence-order span between two picked residues. */
+export function residueRange<T extends ResidueRef>(sequence: T[], first: ResidueRef, last: ResidueRef): T[] {
+  if (first.chainId !== last.chainId || first.modelId !== last.modelId) return [];
+  const a = sequence.findIndex(residue => residueIdentity(residue) === residueIdentity(first));
+  const b = sequence.findIndex(residue => residueIdentity(residue) === residueIdentity(last));
+  if (a < 0 || b < 0) return [];
+  return sequence.slice(Math.min(a, b), Math.max(a, b) + 1);
+}
+
 /** Reduce a pick to one whole atomic residue, including bond picks. */
 export function residueFromLoci(picked: Loci) {
   const loci = Bond.isLoci(picked) ? Bond.toFirstStructureElementLoci(picked) : picked;

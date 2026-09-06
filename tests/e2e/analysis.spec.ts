@@ -21,3 +21,11 @@ test('property colors, linked sequence, annotations and measurements work togeth
 test('purge is visually marked as destructive',async({page})=>{await page.goto('/');await page.getByLabel('Open structure file').setInputFiles('public/examples/example.cif');await page.getByRole('button',{name:'Manage structures'}).click();await expect(page.getByRole('button',{name:'Purge all structures'})).toHaveClass(/danger-button/);});
 
 test('automatic annotation works when Safari local HTTP omits crypto.randomUUID',async({page})=>{await page.addInitScript(()=>{Object.defineProperty(Crypto.prototype,'randomUUID',{configurable:true,value:undefined});});await page.goto('/');await page.getByLabel('Open structure file').setInputFiles('public/examples/4HHB.cif');await page.getByRole('button',{name:'Analyze'}).click();const panel=page.getByRole('complementary',{name:'Structure analysis'});await panel.getByRole('button',{name:'Detect and annotate'}).click();await expect(panel.getByText(/Deposited site ·/).first()).toBeVisible();});
+
+test('3D range mode is explicit and the sequence matrix stays compact',async({page})=>{
+ await page.goto('/');await page.getByLabel('Open structure file').setInputFiles('public/examples/example.cif');await page.getByRole('button',{name:'Analyze'}).click();
+ const panel=page.getByRole('complementary',{name:'Structure analysis'}),matrix=panel.getByLabel('Linked sequence'),range=panel.getByRole('button',{name:'Drag range on 3D'});
+ await expect(matrix).toBeVisible();expect(await matrix.evaluate(el=>getComputedStyle(el).maxHeight)).toBe('220px');
+ await range.click();await expect(range).toHaveAttribute('aria-pressed','true');await expect(page.locator('.viewer-canvas')).toHaveClass(/range-selecting/);await expect(panel.getByText('Camera rotation is paused.',{exact:false})).toBeVisible();
+ await range.click();await expect(page.locator('.viewer-canvas')).not.toHaveClass(/range-selecting/);
+});

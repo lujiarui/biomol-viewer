@@ -5,15 +5,16 @@ import { StructureElement, StructureProperties, Bond } from 'molstar/lib/mol-mod
 import { neighborhoodSearch, visibleSubset } from './visibleAtoms';
 import { setSubtreeVisibility } from 'molstar/lib/mol-plugin/behavior/static/state';
 import { ButtonsType } from 'molstar/lib/mol-util/input/input-observer';
+import { Binding } from 'molstar/lib/mol-util/binding';
 import { OrderedSet } from 'molstar/lib/mol-data/int';
 import { bestView } from './bestView';
-import { Mat4, Vec3, Vec4 } from 'molstar/lib/mol-math/linear-algebra';
+import { Mat4, Vec2, Vec3, Vec4 } from 'molstar/lib/mol-math/linear-algebra';
 import { extractAlignmentChains, fitChains, residueKey } from './alignment';
 import type { AlignmentRequest, AlignmentReport } from './alignment';
 import { examplePath } from './examples';
 import { createViewer } from './createViewer';
 import { detectFormat, loadStructure } from './structureLoader';
-import { residueFromLoci } from './selection';
+import { residueFromLoci, residueRange } from './selection';
 import { chainColors, renderPart } from './representations';
 import { colorHex } from './palettes';
 import { applyVisualPreset } from './visualPresets';
@@ -34,6 +35,9 @@ export class ViewerController implements BiomolViewer {
   private previousView?: Camera.Snapshot;
   private preview?: { id: string; matrix: Mat4; camera?: Camera.Snapshot; restoreAlpha: (()=>void)[] };
   private addSelection = false;
+  private rangeSelection = false;
+  private rangeDrag?: { start?: ReturnType<ViewerController['pickResidueAt']>; end?: ReturnType<ViewerController['pickResidueAt']> };
+  private rotateBinding?: Binding;
   private colorSerial = 0;
   private undo: { id: string; matrix: Mat4 }[] = [];
   private lastAlignment?: { request: AlignmentRequest; report: AlignmentReport };
@@ -51,6 +55,8 @@ export class ViewerController implements BiomolViewer {
   private drawSubscription;
   private listeners = new Set<(selection: SelectionState) => void>();
   private clickSubscription;
+  private dragSubscription;
+  private dragEndSubscription;
   private disposed = false;
   private pending?: Promise<unknown>;
   private abort = new AbortController();
@@ -62,9 +68,10 @@ export class ViewerController implements BiomolViewer {
       host.appendChild(this.labelLayer);
     }
     this.drawSubscription = plugin.canvas3d?.didDraw.subscribe(() => this.updateChainLabels());
+    this.rotateBinding = plugin.canvas3d?.attribs.trackball.bindings.dragRotate;
     plugin.managers.interactivity.setProps({ granularity: 'residue' });
     this.clickSubscription = plugin.behaviors.interaction.click.subscribe(event => {
-      if (this.disposed || this.pending || this.preview || event.button !== ButtonsType.Flag.Primary) return;
+      if (this.disposed || this.pending || this.preview || (event.button !== ButtonsType.Flag.Primary && event.button !== ButtonsType.Flag.Trigger)) return;
       const raw = Bond.isLoci(event.current.loci) ? Bond.toFirstStructureElementLoci(event.current.loci) : event.current.loci;
       const picked = residueFromLoci(raw);
       if (!picked) return;
@@ -91,6 +98,17 @@ export class ViewerController implements BiomolViewer {
       const location = StructureElement.Loci.getFirstLocation(this.selectedLoci);
       this.selection = { residues: [picked.residue], structureId: entry[0], fileName: entry[1].metadata.fileName, ...(this.picking === 'atom' && location ? { atomName: StructureProperties.atom.label_atom_id(location) } : {}) };
       this.emitSelection();
+    });
+    this.dragSubscription = plugin.canvas3d?.input?.drag?.subscribe(event => {
+      if (!this.rangeSelection || this.disposed || this.pending || this.preview || (event.button !== ButtonsType.Flag.Primary && event.button !== ButtonsType.Flag.Trigger)) return;
+      const picked = this.pickResidueAt(Vec2.create(event.x, event.y));
+      if (event.isStart || !this.rangeDrag) this.rangeDrag = { start: picked, end: picked };
+      else if (picked) this.rangeDrag.end = picked;
+    });
+    this.dragEndSubscription = plugin.canvas3d?.input?.interactionEnd?.subscribe(() => {
+      if (!this.rangeSelection || !this.rangeDrag) return;
+      const drag = this.rangeDrag; this.rangeDrag = undefined;
+      if (drag.start && drag.end) this.selectDraggedRange(drag.start, drag.end);
     });
   }
   static async create(host: HTMLDivElement, signal: AbortSignal): Promise<BiomolViewer> {
@@ -161,6 +179,35 @@ export class ViewerController implements BiomolViewer {
     return this.loadFile(new File([entry.sourceText], `Copy of ${entry.metadata.fileName}`));
   }
   setSelectionMode(add: boolean) { this.addSelection = add; if (add) this.picking = 'residue'; }
+  setRangeSelectionMode(enabled: boolean) {
+    this.rangeSelection = enabled; this.rangeDrag = undefined;
+    if (enabled) { this.addSelection = false; this.picking = 'residue'; }
+    const canvas = this.plugin.canvas3d;
+    this.host.classList.toggle('range-selecting', enabled);
+    if (!canvas || !this.rotateBinding) return;
+    canvas.setAttribs({ trackball: { bindings: { ...canvas.attribs.trackball.bindings, dragRotate: enabled ? Binding.Empty : this.rotateBinding } } });
+  }
+  private pickResidueAt(point: Vec2) {
+    const canvas = this.plugin.canvas3d, pick = canvas?.identify(point);
+    if (!canvas || !pick) return;
+    const picked = residueFromLoci(canvas.getLoci(pick.id).loci);
+    if (!picked) return;
+    const entry = [...this.entries.entries()].find(([, item]) => item.structure.obj?.data.root === picked.loci.structure.root);
+    if (!entry?.[1].structure.obj) return;
+    picked.loci = StructureElement.Loci.remap(picked.loci, entry[1].structure.obj.data);
+    return { structureId: entry[0], fileName: entry[1].metadata.fileName, residue: picked.residue };
+  }
+  private selectDraggedRange(first: NonNullable<ReturnType<ViewerController['pickResidueAt']>>, last: NonNullable<ReturnType<ViewerController['pickResidueAt']>>) {
+    if (first.structureId !== last.structureId || first.residue.chainId !== last.residue.chainId) return;
+    const entry = this.entries.get(first.structureId);
+    if (!entry?.structure.obj) return;
+    const residues = residueRange(sequenceResidues(entry.structure.obj.data, [], first.residue.chainId), first.residue, last.residue);
+    const loci = this.lociForResidues(first.structureId, residues);
+    if (!residues.length || !loci || StructureElement.Loci.isEmpty(loci)) return;
+    this.clearSelection(); this.selectedLoci = loci;
+    this.selection = { residues, structureId: first.structureId, fileName: first.fileName };
+    this.plugin.managers.interactivity.lociSelects.selectOnly({ loci }, false); this.emitSelection();
+  }
   private alignmentInput(request: AlignmentRequest) {
     if (request.reference.structureId === request.mobile.structureId) throw new Error('Choose two structure instances. Duplicate the file to compare its chains without moving the reference.');
     const get = (side: AlignmentRequest['reference']) => {
@@ -231,7 +278,7 @@ export class ViewerController implements BiomolViewer {
   });}
   purge(){return this.run(async()=>{
     this.clearSelection();const update=this.plugin.build();for(const id of this.entries.keys())update.delete(id);await update.commit();
-    this.entries.clear();this.previousView=undefined;this.undo=[];this.lastAlignment=undefined;this.detailRefs=[];this.addSelection=false;this.colorSerial=0;this.updateChainLabels();this.resetCamera();
+    this.entries.clear();this.previousView=undefined;this.undo=[];this.lastAlignment=undefined;this.detailRefs=[];this.addSelection=false;this.setRangeSelectionMode(false);this.colorSerial=0;this.updateChainLabels();this.resetCamera();
   });}
   applyAlignment(request: AlignmentRequest) { return this.run(()=>this.commitAlignment(request)); }
   private async commitAlignment(request: AlignmentRequest) {
@@ -424,7 +471,7 @@ export class ViewerController implements BiomolViewer {
   resetCamera() { if (!this.disposed) this.plugin.managers.camera.reset(); }
   dispose() {
     if (this.disposed) return; this.disposed = true; this.abort.abort();
-    this.observer.disconnect(); this.clickSubscription.unsubscribe(); this.drawSubscription?.unsubscribe(); this.labelLayer?.remove(); this.listeners.clear();
+    this.observer.disconnect(); this.clickSubscription.unsubscribe(); this.dragSubscription?.unsubscribe(); this.dragEndSubscription?.unsubscribe(); this.drawSubscription?.unsubscribe(); this.labelLayer?.remove(); this.listeners.clear();
     this.plugin.unmount(); this.plugin.animationLoop.stop();
     if (this.pending) void this.pending.then(() => this.plugin.dispose(), () => this.plugin.dispose()); else this.plugin.dispose();
   }
